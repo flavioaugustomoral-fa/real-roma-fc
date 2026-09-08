@@ -368,6 +368,27 @@ export const AdminView: React.FC<AdminViewProps> = ({ onOpenCreateMatch }) => {
         </button>
       </div>
 
+      {/* Wipe All Data Card */}
+      <div className="p-4 bg-slate-900/50 border border-rose-900/40 rounded-2xl flex items-center justify-between gap-3">
+        <div>
+          <span className="text-xs font-bold text-rose-300 block">Apagar Todos os Dados</span>
+          <p className="text-[11px] text-slate-500">
+            Remove jogadores, peladas e lançamentos de exemplo, deixando o app zerado para uso real. Não afeta nome do grupo, logo ou PIN.
+          </p>
+        </div>
+        <button
+          onClick={() => {
+            if (confirm('Isso vai APAGAR todos os jogadores, peladas e lançamentos, para todo mundo. Essa ação não pode ser desfeita. Confirma?')) {
+              store.wipeAllData();
+            }
+          }}
+          className="px-3 py-1.5 rounded-xl bg-rose-950/60 hover:bg-rose-900/60 border border-rose-800/60 text-xs font-semibold text-rose-300 flex items-center gap-1 shrink-0 transition"
+        >
+          <AlertCircle className="w-3.5 h-3.5" />
+          <span>Apagar Tudo</span>
+        </button>
+      </div>
+
       {/* Supabase SQL Modal */}
       {showSqlViewer && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">

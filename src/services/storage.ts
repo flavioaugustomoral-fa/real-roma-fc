@@ -279,7 +279,11 @@ class PeladaStore {
 
   // On startup: if Supabase is configured, adopt whatever the group already
   // has stored remotely (so every device converges on the same data), or, if
-  // the Supabase project is brand new/empty, seed it from this device.
+  // the Supabase project is brand new (never configured at all), seed it from
+  // this device. A project that was already configured but had its data
+  // wiped on purpose (players/matches empty) must NOT be re-seeded — that's
+  // why this checks whether pelada_settings already exists, not whether
+  // players/matches happen to be empty.
   // Then subscribe to realtime changes so other people's actions show up here.
   private async initRemote() {
     if (!isSupabaseConfigured()) return;
@@ -287,8 +291,8 @@ class PeladaStore {
       const remote = await fetchAllRemoteData();
       if (!remote) return;
 
-      const hasRemoteData = remote.players.length > 0 || remote.matches.length > 0;
-      if (hasRemoteData) {
+      const alreadyInitialized = remote.settings !== null;
+      if (alreadyInitialized) {
         this.applyingRemote = true;
         this.data = {
           players: remote.players,
@@ -989,6 +993,22 @@ class PeladaStore {
     this.persist(fresh);
     const pin = this.getSessionPin();
     wipeRemoteData(pin).then(() => pushFullSnapshot(fresh, pin, false));
+  }
+
+  // Apaga jogadores/peladas/lançamentos/logs de verdade, sem recriar dados de
+  // exemplo (mantém nome do grupo/logo/PIN). Uso: começar a temporada real.
+  public wipeAllData(): void {
+    const empty: StorageData = {
+      players: [],
+      matches: [],
+      matchPlayers: [],
+      statEvents: [],
+      auditLogs: [],
+      settings: this.data.settings,
+    };
+    this.data = empty;
+    this.persist(empty);
+    wipeRemoteData(this.getSessionPin());
   }
 }
 
