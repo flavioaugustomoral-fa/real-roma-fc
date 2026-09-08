@@ -26,9 +26,27 @@ import {
   pushSettings,
   wipeRemoteData,
   subscribeToRemoteChanges,
+  verifyAdminPinRemote,
 } from './supabase';
 
 const STORAGE_KEY = 'gestao_pelada_data_v1';
+
+// PIN da sessão de Admin atual, guardado só em sessionStorage deste navegador
+// (nunca em localStorage, nunca lido de volta do Supabase). É anexado às
+// chamadas admin_* pra provar autorização a cada ação — ver src/services/supabase.ts.
+const ADMIN_PIN_SESSION_KEY = 'pelada_admin_pin_session';
+
+export function setSessionAdminPin(pin: string): void {
+  if (typeof window !== 'undefined') {
+    sessionStorage.setItem(ADMIN_PIN_SESSION_KEY, pin);
+  }
+}
+
+export function clearSessionAdminPin(): void {
+  if (typeof window !== 'undefined') {
+    sessionStorage.removeItem(ADMIN_PIN_SESSION_KEY);
+  }
+}
 
 export interface StorageData {
   players: Player[];
@@ -278,12 +296,14 @@ class PeladaStore {
           matchPlayers: remote.matchPlayers,
           statEvents: remote.statEvents,
           auditLogs: remote.auditLogs,
-          settings: remote.settings || this.data.settings,
+          settings: { ...this.data.settings, ...(remote.settings || {}) },
         };
         this.applyingRemote = false;
         this.persist(this.data);
       } else {
-        await pushFullSnapshot(this.data);
+        // Projeto Supabase vazio: usa o PIN local (padrão "1234" na primeira
+        // instalação) só para essa semeadura inicial única.
+        await pushFullSnapshot(this.data, this.data.settings.adminPin);
       }
     } catch (err) {
       console.warn('Falha ao sincronizar com o Supabase, usando dados locais:', err);
@@ -303,10 +323,15 @@ class PeladaStore {
       matchPlayers: remote.matchPlayers,
       statEvents: remote.statEvents,
       auditLogs: remote.auditLogs,
-      settings: remote.settings || this.data.settings,
+      settings: { ...this.data.settings, ...(remote.settings || {}) },
     };
     this.applyingRemote = false;
     this.persist(this.data);
+  }
+
+  private getSessionPin(): string {
+    if (typeof window === 'undefined') return '';
+    return sessionStorage.getItem(ADMIN_PIN_SESSION_KEY) || '';
   }
 
   private loadData(): StorageData {
@@ -372,13 +397,32 @@ class PeladaStore {
   }
 
   public updateSettings(settingsUpdate: Partial<PeladaSettings>): void {
-    this.data.settings = { ...this.data.settings, ...settingsUpdate };
+    const newPin = settingsUpdate.adminPin;
+    const pinForAuth = this.getSessionPin();
+    // Não guarda o novo PIN localmente: quem manda no PIN é o banco.
+    const { adminPin: _ignored, ...rest } = settingsUpdate;
+    this.data.settings = { ...this.data.settings, ...rest };
     this.persist(this.data);
-    pushSettings(this.data.settings);
+    pushSettings(this.data.settings, pinForAuth, newPin).then(ok => {
+      if (ok && newPin) {
+        setSessionAdminPin(newPin);
+      } else if (!ok) {
+        console.error('Não foi possível salvar as configurações: PIN de admin desatualizado.');
+      }
+    });
   }
 
-  public verifyAdminPin(pin: string): boolean {
-    return this.data.settings.adminPin === pin;
+  // Verifica o PIN direto no banco (a coluna admin_pin nunca é lida pelo
+  // cliente). Em modo local puro (Supabase não configurado), compara com o
+  // valor padrão salvo localmente.
+  public async verifyAdminPin(pin: string): Promise<boolean> {
+    const ok = isSupabaseConfigured()
+      ? await verifyAdminPinRemote(pin)
+      : this.data.settings.adminPin === pin;
+    if (ok) {
+      setSessionAdminPin(pin);
+    }
+    return ok;
   }
 
   // Find player by internal ID
@@ -400,7 +444,7 @@ class PeladaStore {
       createdAt: new Date().toISOString(),
     };
     this.data.players.push(newPlayer);
-    pushPlayer(newPlayer);
+    pushPlayer(newPlayer, this.getSessionPin());
     return newPlayer;
   }
 
@@ -467,9 +511,10 @@ class PeladaStore {
     this.data.auditLogs.unshift(auditEntry);
 
     this.persist(this.data);
-    pushMatch(newMatch);
-    pushMatchPlayers(newMatchPlayers);
-    pushAuditLog(auditEntry);
+    const pin = this.getSessionPin();
+    pushMatch(newMatch, pin);
+    pushMatchPlayers(newMatchPlayers, pin);
+    pushAuditLog(auditEntry, pin);
     return { match: newMatch, count: parsed.parsedPlayers.length };
   }
 
@@ -489,8 +534,9 @@ class PeladaStore {
     this.data.auditLogs.unshift(auditEntry);
 
     this.persist(this.data);
-    pushMatch(match);
-    pushAuditLog(auditEntry);
+    const pin = this.getSessionPin();
+    pushMatch(match, pin);
+    pushAuditLog(auditEntry, pin);
   }
 
   public getActiveMatch(): Match | undefined {
@@ -584,8 +630,9 @@ class PeladaStore {
     this.data.auditLogs.unshift(auditEntry);
 
     this.persist(this.data);
-    deleteRemoteStatEvent(removed.id);
-    pushAuditLog(auditEntry);
+    const pin = this.getSessionPin();
+    deleteRemoteStatEvent(removed.id, pin);
+    pushAuditLog(auditEntry, pin);
     return true;
   }
 
@@ -608,8 +655,9 @@ class PeladaStore {
     this.data.auditLogs.unshift(auditEntry);
 
     this.persist(this.data);
-    deleteRemoteStatEvent(eventId);
-    pushAuditLog(auditEntry);
+    const pin = this.getSessionPin();
+    deleteRemoteStatEvent(eventId, pin);
+    pushAuditLog(auditEntry, pin);
     return true;
   }
 
@@ -637,8 +685,9 @@ class PeladaStore {
     this.data.auditLogs.unshift(auditEntry);
 
     this.persist(this.data);
-    pushMatch(match);
-    pushAuditLog(auditEntry);
+    const pin = this.getSessionPin();
+    pushMatch(match, pin);
+    pushAuditLog(auditEntry, pin);
     return { success: true };
   }
 
@@ -667,8 +716,9 @@ class PeladaStore {
     this.data.auditLogs.unshift(auditEntry);
 
     this.persist(this.data);
-    pushMatch(match);
-    pushAuditLog(auditEntry);
+    const pin = this.getSessionPin();
+    pushMatch(match, pin);
+    pushAuditLog(auditEntry, pin);
   }
 
   // Admin participant list update for match
@@ -713,8 +763,9 @@ class PeladaStore {
     this.data.auditLogs.unshift(auditEntry);
 
     this.persist(this.data);
-    replaceMatchPlayers(matchId, newMatchPlayers);
-    pushAuditLog(auditEntry);
+    const pin = this.getSessionPin();
+    replaceMatchPlayers(matchId, newMatchPlayers, pin);
+    pushAuditLog(auditEntry, pin);
     return { success: true };
   }
 
@@ -735,9 +786,10 @@ class PeladaStore {
     this.data.auditLogs.unshift(auditEntry);
 
     this.persist(this.data);
+    const pin = this.getSessionPin();
     // match_players and stat_events cascade on delete in Postgres
-    deleteRemoteMatch(matchId);
-    pushAuditLog(auditEntry);
+    deleteRemoteMatch(matchId, pin);
+    pushAuditLog(auditEntry, pin);
     return true;
   }
 
@@ -929,12 +981,14 @@ class PeladaStore {
     return Array.from(years).sort((a, b) => b - a);
   }
 
-  // Reset demo data
+  // Reset demo data (mantém nome do grupo/logo/PIN já configurados)
   public resetToDefaultSeed(): void {
     const fresh = getInitialSeedData();
+    fresh.settings = this.data.settings;
     this.data = fresh;
     this.persist(fresh);
-    wipeRemoteData().then(() => pushFullSnapshot(fresh));
+    const pin = this.getSessionPin();
+    wipeRemoteData(pin).then(() => pushFullSnapshot(fresh, pin, false));
   }
 }
 

@@ -39,9 +39,14 @@ export const AdminView: React.FC<AdminViewProps> = ({ onOpenCreateMatch }) => {
   const [showSqlViewer, setShowSqlViewer] = useState(false);
   const [sqlCopied, setSqlCopied] = useState(false);
 
-  const handleAdminLogin = (e: React.FormEvent) => {
+  const [checkingPin, setCheckingPin] = useState(false);
+
+  const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (loginAdmin(pinInput.trim())) {
+    setCheckingPin(true);
+    const ok = await loginAdmin(pinInput.trim());
+    setCheckingPin(false);
+    if (ok) {
       setPinError(false);
       setPinInput('');
     } else {
@@ -123,9 +128,10 @@ export const AdminView: React.FC<AdminViewProps> = ({ onOpenCreateMatch }) => {
 
             <button
               type="submit"
-              className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-white shadow-lg shadow-emerald-950/40 transition"
+              disabled={checkingPin}
+              className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 font-bold text-white shadow-lg shadow-emerald-950/40 transition"
             >
-              Acessar Painel
+              {checkingPin ? 'Verificando...' : 'Acessar Painel'}
             </button>
           </form>
         </div>

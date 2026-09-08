@@ -23,14 +23,6 @@ const SETTINGS_ROW_ID = 'default';
 // Mapping helpers: app uses camelCase, Postgres columns use snake_case
 // ------------------------------------------------------------------
 
-function playerToDb(p: Player) {
-  return {
-    id: p.id,
-    display_name: p.displayName,
-    normalized_name: p.normalizedName,
-    created_at: p.createdAt,
-  };
-}
 function playerFromDb(row: any): Player {
   return {
     id: row.id,
@@ -40,19 +32,6 @@ function playerFromDb(row: any): Player {
   };
 }
 
-function matchToDb(m: Match) {
-  return {
-    id: m.id,
-    date: m.date,
-    time: m.time || null,
-    status: m.status,
-    created_by: m.createdBy,
-    finalized_by: m.finalizedBy || null,
-    created_at: m.createdAt,
-    finalized_at: m.finalizedAt || null,
-    notes: m.notes || null,
-  };
-}
 function matchFromDb(row: any): Match {
   return {
     id: row.id,
@@ -67,15 +46,6 @@ function matchFromDb(row: any): Match {
   };
 }
 
-function matchPlayerToDb(mp: MatchPlayer) {
-  return {
-    id: mp.id,
-    match_id: mp.matchId,
-    player_id: mp.playerId,
-    player_name_as_entered: mp.playerNameAsEntered,
-    created_at: mp.createdAt,
-  };
-}
 function matchPlayerFromDb(row: any): MatchPlayer {
   return {
     id: row.id,
@@ -86,16 +56,6 @@ function matchPlayerFromDb(row: any): MatchPlayer {
   };
 }
 
-function statEventToDb(ev: StatEvent) {
-  return {
-    id: ev.id,
-    match_id: ev.matchId,
-    player_id: ev.playerId,
-    type: ev.type,
-    created_by: ev.createdBy,
-    created_at: ev.createdAt,
-  };
-}
 function statEventFromDb(row: any): StatEvent {
   return {
     id: row.id,
@@ -107,16 +67,6 @@ function statEventFromDb(row: any): StatEvent {
   };
 }
 
-function auditLogToDb(a: AuditLog) {
-  return {
-    id: a.id,
-    match_id: a.matchId || null,
-    action: a.action,
-    details: a.details,
-    performed_by: a.performedBy,
-    created_at: a.createdAt,
-  };
-}
 function auditLogFromDb(row: any): AuditLog {
   return {
     id: row.id,
@@ -128,21 +78,18 @@ function auditLogFromDb(row: any): AuditLog {
   };
 }
 
-function settingsToDb(s: PeladaSettings) {
-  return {
-    id: SETTINGS_ROW_ID,
-    pelada_name: s.peladaName,
-    logo_url: s.logoUrl || null,
-    admin_pin: s.adminPin,
-    venue_name: s.venueName || null,
-    updated_at: new Date().toISOString(),
-  };
-}
-function settingsFromDb(row: any): PeladaSettings {
+// pelada_settings.admin_pin nunca é lido pelo cliente (nem a coluna é
+// liberada para leitura via API — ver GRANT no schema). O login de Admin é
+// verificado inteiramente dentro do banco, através de verifyAdminPinRemote().
+// Por isso este tipo de retorno NÃO tem adminPin — o cache local desse campo
+// (usado só como PIN de "bootstrap" na primeira semeadura de um projeto novo)
+// nunca deve ser sobrescrito por um valor vindo do servidor.
+export type RemoteSettings = Omit<PeladaSettings, 'adminPin'>;
+
+function settingsFromDb(row: any): RemoteSettings {
   return {
     peladaName: row.pelada_name,
     logoUrl: row.logo_url,
-    adminPin: row.admin_pin,
     venueName: row.venue_name,
   };
 }
@@ -157,7 +104,7 @@ export interface RemoteData {
   matchPlayers: MatchPlayer[];
   statEvents: StatEvent[];
   auditLogs: AuditLog[];
-  settings: PeladaSettings | null;
+  settings: RemoteSettings | null;
 }
 
 export async function fetchAllRemoteData(): Promise<RemoteData | null> {
@@ -169,7 +116,7 @@ export async function fetchAllRemoteData(): Promise<RemoteData | null> {
       supabase.from('match_players').select('*'),
       supabase.from('stat_events').select('*'),
       supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(500),
-      supabase.from('pelada_settings').select('*').eq('id', SETTINGS_ROW_ID).maybeSingle(),
+      supabase.from('pelada_settings').select('id, pelada_name, logo_url, venue_name, updated_at').eq('id', SETTINGS_ROW_ID).maybeSingle(),
     ]);
 
     if (playersRes.error) throw playersRes.error;
@@ -192,99 +139,196 @@ export async function fetchAllRemoteData(): Promise<RemoteData | null> {
 }
 
 // ------------------------------------------------------------------
-// Targeted writes (called by the store right after each local mutation)
+// Login de Admin: verificado inteiramente dentro do banco (função
+// verify_admin_pin). O PIN nunca é lido de volta pelo cliente.
 // ------------------------------------------------------------------
 
-export async function pushPlayer(p: Player) {
+export async function verifyAdminPinRemote(pin: string): Promise<boolean> {
+  if (!supabase) return false;
+  const { data, error } = await supabase.rpc('verify_admin_pin', { p_pin: pin });
+  if (error) {
+    console.error('Erro ao verificar PIN no Supabase:', error);
+    return false;
+  }
+  return data === true;
+}
+
+// ------------------------------------------------------------------
+// Escritas de Admin: todas passam por funções SECURITY DEFINER que conferem
+// o PIN dentro do próprio banco (o cliente nunca escreve direto nessas
+// tabelas). `pin` é o PIN da sessão de Admin atual, guardado só em memória/
+// sessionStorage no navegador (ver storage.ts).
+// ------------------------------------------------------------------
+
+export async function pushPlayer(p: Player, pin: string) {
   if (!supabase) return;
-  const { error } = await supabase.from('players').upsert(playerToDb(p), { onConflict: 'id' });
+  const { error } = await supabase.rpc('admin_upsert_player', {
+    p_pin: pin,
+    p_id: p.id,
+    p_display_name: p.displayName,
+    p_normalized_name: p.normalizedName,
+    p_created_at: p.createdAt,
+  });
   if (error) console.error('Erro ao salvar jogador no Supabase:', error);
 }
 
-export async function pushMatch(m: Match) {
+export async function pushMatch(m: Match, pin: string) {
   if (!supabase) return;
-  const { error } = await supabase.from('matches').upsert(matchToDb(m), { onConflict: 'id' });
+  const { error } = await supabase.rpc('admin_upsert_match', {
+    p_pin: pin,
+    p_id: m.id,
+    p_date: m.date,
+    p_time: m.time || null,
+    p_status: m.status,
+    p_created_by: m.createdBy,
+    p_finalized_by: m.finalizedBy || null,
+    p_created_at: m.createdAt,
+    p_finalized_at: m.finalizedAt || null,
+    p_notes: m.notes || null,
+  });
   if (error) console.error('Erro ao salvar pelada no Supabase:', error);
 }
 
-export async function deleteRemoteMatch(matchId: string) {
+export async function deleteRemoteMatch(matchId: string, pin: string) {
   if (!supabase) return;
-  const { error } = await supabase.from('matches').delete().eq('id', matchId);
+  const { error } = await supabase.rpc('admin_delete_match', { p_pin: pin, p_id: matchId });
   if (error) console.error('Erro ao excluir pelada no Supabase:', error);
 }
 
-export async function pushMatchPlayers(list: MatchPlayer[]) {
+// Grava a lista de participantes de uma pelada nova (não existe nenhuma linha
+// ainda, então "substituir" e "inserir pela primeira vez" são a mesma coisa).
+export async function pushMatchPlayers(list: MatchPlayer[], pin: string) {
   if (!supabase || list.length === 0) return;
-  const { error } = await supabase.from('match_players').upsert(list.map(matchPlayerToDb), { onConflict: 'id' });
+  const matchId = list[0].matchId;
+  await replaceMatchPlayers(matchId, list, pin);
+}
+
+export async function replaceMatchPlayers(matchId: string, list: MatchPlayer[], pin: string) {
+  if (!supabase) return;
+  const rows = list.map(mp => ({
+    id: mp.id,
+    playerId: mp.playerId,
+    playerNameAsEntered: mp.playerNameAsEntered,
+    createdAt: mp.createdAt,
+  }));
+  const { error } = await supabase.rpc('admin_replace_match_players', {
+    p_pin: pin,
+    p_match_id: matchId,
+    p_rows: rows,
+  });
   if (error) console.error('Erro ao salvar participantes no Supabase:', error);
 }
 
-export async function replaceMatchPlayers(matchId: string, list: MatchPlayer[]) {
-  if (!supabase) return;
-  const { error: delError } = await supabase.from('match_players').delete().eq('match_id', matchId);
-  if (delError) console.error('Erro ao limpar participantes no Supabase:', delError);
-  await pushMatchPlayers(list);
-}
-
+// Lançar gol/assistência continua público (qualquer participante, sem PIN) —
+// o banco só aceita enquanto a pelada estiver EM ANDAMENTO (ver RLS).
 export async function pushStatEvent(ev: StatEvent) {
   if (!supabase) return;
-  const { error } = await supabase.from('stat_events').upsert(statEventToDb(ev), { onConflict: 'id' });
+  const { error } = await supabase.from('stat_events').insert({
+    id: ev.id,
+    match_id: ev.matchId,
+    player_id: ev.playerId,
+    type: ev.type,
+    created_by: ev.createdBy,
+    created_at: ev.createdAt,
+  });
   if (error) console.error('Erro ao salvar lançamento no Supabase:', error);
 }
 
-export async function deleteRemoteStatEvent(eventId: string) {
+export async function deleteRemoteStatEvent(eventId: string, pin: string) {
   if (!supabase) return;
-  const { error } = await supabase.from('stat_events').delete().eq('id', eventId);
+  const { error } = await supabase.rpc('admin_delete_stat_event', { p_pin: pin, p_id: eventId });
   if (error) console.error('Erro ao excluir lançamento no Supabase:', error);
 }
 
-export async function pushAuditLog(log: AuditLog) {
+export async function pushAuditLog(log: AuditLog, pin: string) {
   if (!supabase) return;
-  const { error } = await supabase.from('audit_logs').insert(auditLogToDb(log));
+  const { error } = await supabase.rpc('admin_insert_audit_log', {
+    p_pin: pin,
+    p_id: log.id,
+    p_match_id: log.matchId || null,
+    p_action: log.action,
+    p_details: log.details,
+    p_performed_by: log.performedBy,
+    p_created_at: log.createdAt,
+  });
   if (error) console.error('Erro ao salvar log no Supabase:', error);
 }
 
-export async function pushSettings(s: PeladaSettings) {
-  if (!supabase) return;
-  const { error } = await supabase.from('pelada_settings').upsert(settingsToDb(s), { onConflict: 'id' });
-  if (error) console.error('Erro ao salvar configurações no Supabase:', error);
+// Retorna false quando o PIN informado está errado (o app deve tratar isso
+// como falha de autenticação, não como erro de rede).
+export async function pushSettings(s: PeladaSettings, pin: string, newPin?: string): Promise<boolean> {
+  if (!supabase) return true;
+  const { data, error } = await supabase.rpc('admin_upsert_settings', {
+    p_pin: pin,
+    p_pelada_name: s.peladaName,
+    p_logo_url: s.logoUrl || null,
+    p_venue_name: s.venueName || null,
+    p_new_pin: newPin || null,
+  });
+  if (error) {
+    console.error('Erro ao salvar configurações no Supabase:', error);
+    return false;
+  }
+  return data === true;
 }
 
-export async function wipeRemoteData() {
+export async function wipeRemoteData(pin: string) {
   if (!supabase) return;
-  await supabase.from('stat_events').delete().neq('id', '__none__');
-  await supabase.from('match_players').delete().neq('id', '__none__');
-  await supabase.from('audit_logs').delete().neq('id', '__none__');
-  await supabase.from('matches').delete().neq('id', '__none__');
-  await supabase.from('players').delete().neq('id', '__none__');
+  const { error } = await supabase.rpc('admin_wipe_all', { p_pin: pin });
+  if (error) console.error('Erro ao apagar dados no Supabase:', error);
 }
 
-export async function pushFullSnapshot(data: {
-  players: Player[];
-  matches: Match[];
-  matchPlayers: MatchPlayer[];
-  statEvents: StatEvent[];
-  auditLogs: AuditLog[];
-  settings: PeladaSettings;
-}) {
+// Usado (a) na primeira vez que o app fala com um projeto Supabase vazio, pra
+// semear com os dados locais, e (b) por "Restaurar Dados Iniciais" no Admin.
+// `includeSettings` fica false no caso (b): um reset de dados não deve mexer
+// no nome do grupo/logo/PIN já configurados.
+export async function pushFullSnapshot(
+  data: {
+    players: Player[];
+    matches: Match[];
+    matchPlayers: MatchPlayer[];
+    statEvents: StatEvent[];
+    auditLogs: AuditLog[];
+    settings: PeladaSettings;
+  },
+  pin: string,
+  includeSettings: boolean = true
+) {
   if (!supabase) return;
   try {
-    if (data.players.length > 0) {
-      await supabase.from('players').upsert(data.players.map(playerToDb), { onConflict: 'id' });
+    if (includeSettings) {
+      await pushSettings(data.settings, pin);
     }
-    if (data.matches.length > 0) {
-      await supabase.from('matches').upsert(data.matches.map(matchToDb), { onConflict: 'id' });
+    for (const p of data.players) {
+      await pushPlayer(p, pin);
     }
-    if (data.matchPlayers.length > 0) {
-      await supabase.from('match_players').upsert(data.matchPlayers.map(matchPlayerToDb), { onConflict: 'id' });
+    for (const m of data.matches) {
+      await pushMatch(m, pin);
     }
-    if (data.statEvents.length > 0) {
-      await supabase.from('stat_events').upsert(data.statEvents.map(statEventToDb), { onConflict: 'id' });
+    const byMatch = new Map<string, MatchPlayer[]>();
+    for (const mp of data.matchPlayers) {
+      const arr = byMatch.get(mp.matchId) || [];
+      arr.push(mp);
+      byMatch.set(mp.matchId, arr);
     }
-    if (data.auditLogs.length > 0) {
-      await supabase.from('audit_logs').upsert(data.auditLogs.map(auditLogToDb), { onConflict: 'id' });
+    for (const [matchId, rows] of byMatch) {
+      await replaceMatchPlayers(matchId, rows, pin);
     }
-    await pushSettings(data.settings);
+    for (const ev of data.statEvents) {
+      const { error } = await supabase.rpc('admin_insert_stat_event', {
+        p_pin: pin,
+        p_id: ev.id,
+        p_match_id: ev.matchId,
+        p_player_id: ev.playerId,
+        p_type: ev.type,
+        p_created_by: ev.createdBy,
+        p_created_at: ev.createdAt,
+      });
+      if (error) console.error('Erro ao semear lançamento no Supabase:', error);
+    }
+    for (const log of data.auditLogs) {
+      await pushAuditLog(log, pin);
+    }
   } catch (error) {
     console.error('Erro ao enviar snapshot inicial para o Supabase:', error);
   }

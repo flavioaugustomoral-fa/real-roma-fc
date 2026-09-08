@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { peladaStore, StorageData } from '../services/storage';
+import { peladaStore, StorageData, clearSessionAdminPin } from '../services/storage';
 
 export function usePeladaStore() {
   const [data, setData] = useState<StorageData>(() => peladaStore.getData());
@@ -26,16 +26,17 @@ export function usePeladaStore() {
     }
   };
 
-  const loginAdmin = (pin: string): boolean => {
-    if (peladaStore.verifyAdminPin(pin)) {
+  const loginAdmin = async (pin: string): Promise<boolean> => {
+    const ok = await peladaStore.verifyAdminPin(pin);
+    if (ok) {
       toggleAdmin(true);
-      return true;
     }
-    return false;
+    return ok;
   };
 
   const logoutAdmin = () => {
     toggleAdmin(false);
+    clearSessionAdminPin();
   };
 
   return {
