@@ -434,12 +434,17 @@ class PeladaStore {
     return this.data.players.find(p => p.id === playerId);
   }
 
-  // Find or create player automatically with normalized identification
-  public findOrCreatePlayer(rawName: string): Player {
+  // Find or create player automatically with normalized identification.
+  // Does NOT push the new player remotely itself — the caller is responsible
+  // for that (and must await it before linking the player to a match), since
+  // match_players.player_id is a foreign key: if the insert races ahead of
+  // the player upsert landing on the server, the whole match_players write
+  // is rejected and the pelada ends up with zero participants.
+  private findOrCreatePlayer(rawName: string): { player: Player; isNew: boolean } {
     const normalized = normalizePlayerName(rawName);
     const existing = this.data.players.find(p => p.normalizedName === normalized);
     if (existing) {
-      return existing;
+      return { player: existing, isNew: false };
     }
     const newPlayer: Player = {
       id: generateId('p'),
@@ -448,8 +453,7 @@ class PeladaStore {
       createdAt: new Date().toISOString(),
     };
     this.data.players.push(newPlayer);
-    pushPlayer(newPlayer, this.getSessionPin());
-    return newPlayer;
+    return { player: newPlayer, isNew: true };
   }
 
   // Create a new match with participant list
@@ -491,8 +495,10 @@ class PeladaStore {
 
     // Link each player
     const newMatchPlayers: MatchPlayer[] = [];
+    const newPlayers: Player[] = [];
     parsed.parsedPlayers.forEach(item => {
-      const player = this.findOrCreatePlayer(item.originalName);
+      const { player, isNew } = this.findOrCreatePlayer(item.originalName);
+      if (isNew) newPlayers.push(player);
       const mp: MatchPlayer = {
         id: generateId('mp'),
         matchId,
@@ -516,9 +522,12 @@ class PeladaStore {
 
     this.persist(this.data);
     const pin = this.getSessionPin();
-    pushMatch(newMatch, pin);
-    pushMatchPlayers(newMatchPlayers, pin);
-    pushAuditLog(auditEntry, pin);
+    // Novos jogadores E a pelada precisam existir no banco antes de linkar os
+    // participantes (match_players tem FK pra ambos) — por isso aguarda os
+    // dois antes de mandar os participantes.
+    Promise.all([pushMatch(newMatch, pin), ...newPlayers.map(p => pushPlayer(p, pin))])
+      .then(() => pushMatchPlayers(newMatchPlayers, pin))
+      .then(() => pushAuditLog(auditEntry, pin));
     return { match: newMatch, count: parsed.parsedPlayers.length };
   }
 
@@ -743,8 +752,10 @@ class PeladaStore {
     this.data.matchPlayers = this.data.matchPlayers.filter(mp => mp.matchId !== matchId);
 
     const newMatchPlayers: MatchPlayer[] = [];
+    const newPlayers: Player[] = [];
     parsed.parsedPlayers.forEach(item => {
-      const player = this.findOrCreatePlayer(item.originalName);
+      const { player, isNew } = this.findOrCreatePlayer(item.originalName);
+      if (isNew) newPlayers.push(player);
       const mp: MatchPlayer = {
         id: generateId('mp'),
         matchId,
@@ -768,8 +779,9 @@ class PeladaStore {
 
     this.persist(this.data);
     const pin = this.getSessionPin();
-    replaceMatchPlayers(matchId, newMatchPlayers, pin);
-    pushAuditLog(auditEntry, pin);
+    Promise.all(newPlayers.map(p => pushPlayer(p, pin)))
+      .then(() => replaceMatchPlayers(matchId, newMatchPlayers, pin))
+      .then(() => pushAuditLog(auditEntry, pin));
     return { success: true };
   }
 
