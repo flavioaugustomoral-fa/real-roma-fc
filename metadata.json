@@ -1,0 +1,6 @@
+{
+  "name": "Gestão de Pelada",
+  "description": "Sistema responsivo e mobile-first para gerenciamento de peladas de futebol com rankings de gols e assistências, histórico e estatísticas individuais.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
