@@ -20,7 +20,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onOpenCreateMatch,
   onSelectPlayer,
 }) => {
-  const { settings, activeMatch, store, isAdmin } = usePeladaStore();
+  const { data, settings, activeMatch, store, isAdmin } = usePeladaStore();
 
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -33,7 +33,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
       year: currentYear,
     });
     return res.items.slice(0, 5);
-  }, [store, currentYear]);
+  }, [store, currentYear, data]);
 
   // Top 5 Assists of current year (Annual)
   const topAssistsYear = useMemo(() => {
@@ -43,7 +43,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
       year: currentYear,
     });
     return res.items.slice(0, 5);
-  }, [store, currentYear]);
+  }, [store, currentYear, data]);
 
   const isLive = activeMatch?.status === 'IN_PROGRESS';
 

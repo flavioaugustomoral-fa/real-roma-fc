@@ -363,11 +363,12 @@ CREATE OR REPLACE FUNCTION admin_wipe_all(p_pin TEXT)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   PERFORM check_admin_pin(p_pin);
-  DELETE FROM public.stat_events;
-  DELETE FROM public.match_players;
-  DELETE FROM public.audit_logs;
-  DELETE FROM public.matches;
-  DELETE FROM public.players;
+  -- "WHERE true" satisfaz a proteção do Supabase contra DELETE sem WHERE.
+  DELETE FROM public.stat_events WHERE true;
+  DELETE FROM public.match_players WHERE true;
+  DELETE FROM public.audit_logs WHERE true;
+  DELETE FROM public.matches WHERE true;
+  DELETE FROM public.players WHERE true;
 END;
 $$;
 

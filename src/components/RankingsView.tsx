@@ -18,7 +18,7 @@ interface RankingsViewProps {
 }
 
 export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) => {
-  const { store, settings } = usePeladaStore();
+  const { data, store, settings } = usePeladaStore();
 
   // Active ranking type: 'GOAL' or 'ASSIST'
   const [rankingType, setRankingType] = useState<StatEventType>('GOAL');
@@ -34,7 +34,7 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
   // Show full list beyond Top 10 toggle
   const [showFullList, setShowFullList] = useState(false);
 
-  const availableYears = useMemo(() => store.getAvailableYears(), [store]);
+  const availableYears = useMemo(() => store.getAvailableYears(), [store, data]);
 
   const monthNames = [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -49,7 +49,7 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
       month: selectedMonth,
       year: selectedYear,
     });
-  }, [store, rankingType, scope, selectedMonth, selectedYear]);
+  }, [store, rankingType, scope, selectedMonth, selectedYear, data]);
 
   // Section 27: Top 10 by default
   const displayedItems = useMemo(() => {
