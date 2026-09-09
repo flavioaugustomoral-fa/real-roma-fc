@@ -11,6 +11,11 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
+        // Registrado manualmente em src/main.tsx, que também força uma
+        // verificação periódica de atualização — sem isso, uma aba/PWA
+        // aberta só via "reload" (não uma navegação nova) pode nunca
+        // notar que existe uma versão mais nova publicada.
+        injectRegister: null,
         includeAssets: ['favicon.ico', 'logo-crest.svg', 'logo-roma.png', 'pwa-192x192.png', 'pwa-512x512.png'],
         manifest: {
           id: '/',
@@ -45,6 +50,9 @@ export default defineConfig(() => {
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+          skipWaiting: true,
+          clientsClaim: true,
+          cleanupOutdatedCaches: true,
         },
         devOptions: {
           enabled: false,
