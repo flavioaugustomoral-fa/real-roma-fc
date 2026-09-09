@@ -4,7 +4,6 @@ import {
   CheckCircle,
   Search,
   Clock,
-  History as HistoryIcon,
   ShieldCheck,
   Plus,
   Minus,
@@ -32,7 +31,6 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showFeed, setShowFeed] = useState(false);
   const [lastActionToast, setLastActionToast] = useState<{
     text: string;
     type: 'goal' | 'assist' | 'info';
@@ -67,12 +65,6 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
     });
     return { totalGoals, totalAssists, totalPlayers: matchPlayersData.length };
   }, [matchPlayersData]);
-
-  // Recent stat events for this match
-  const recentEvents = useMemo(() => {
-    const all = store.getData().statEvents.filter(e => e.matchId === match.id);
-    return [...all].reverse();
-  }, [store, match.id, data]);
 
   // Trigger feedback toast
   const triggerToast = (text: string, type: 'goal' | 'assist' | 'info') => {
@@ -213,17 +205,7 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
         </div>
 
         {/* Action button row for Admin */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-800/80">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowFeed(!showFeed)}
-              className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:text-white flex items-center gap-1.5 transition"
-            >
-              <HistoryIcon className="w-3.5 h-3.5 text-slate-400" />
-              <span>{showFeed ? 'Ocultar Lançamentos' : `Ver Lançamentos (${recentEvents.length})`}</span>
-            </button>
-          </div>
-
+        <div className="flex flex-wrap items-center justify-end gap-2 pt-1 border-t border-slate-800/80">
           {isAdmin && (
             <div className="flex items-center gap-2">
               {!isFinalized && (
@@ -273,53 +255,6 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
             </span>
           )}
         </div>
-
-        {/* Collapsible Events Feed */}
-        {showFeed && (
-          <div className="mt-3 pt-3 border-t border-slate-800 animate-in fade-in duration-150">
-            <span className="text-xs font-bold text-slate-400 block mb-2">
-              Histórico de Lançamentos desta partida:
-            </span>
-            {recentEvents.length === 0 ? (
-              <p className="text-xs text-slate-500 italic py-2">Nenhum lançamento registrado ainda.</p>
-            ) : (
-              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                {recentEvents.map(ev => {
-                  const pl = store.getPlayerById(ev.playerId);
-                  const timeFormatted = new Date(ev.createdAt).toLocaleTimeString('pt-BR', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  });
-
-                  return (
-                    <div
-                      key={ev.id}
-                      className="flex items-center justify-between text-xs p-2 rounded-lg bg-slate-950/60 border border-slate-800/60"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-base">{ev.type === 'GOAL' ? '⚽' : '👟'}</span>
-                        <span className="font-semibold text-white">{pl?.displayName || 'Jogador'}</span>
-                        <span className="text-[10px] text-slate-400">({ev.type === 'GOAL' ? 'Gol' : 'Assistência'})</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-mono text-slate-500">{timeFormatted}</span>
-                        {isAdmin && (
-                          <button
-                            onClick={() => store.removeStatEventById(ev.id, 'Administrador')}
-                            className="text-rose-400 hover:text-rose-300 text-[11px] font-semibold px-1.5 py-0.5 rounded bg-rose-950/40 hover:bg-rose-900/50"
-                            title="Remover este lançamento"
-                          >
-                            Excluir
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Quick Player Search Bar */}
@@ -512,7 +447,7 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
               Excluir Pelada?
             </h3>
             <p className="text-xs text-center text-slate-400 mb-5 leading-relaxed">
-              A pelada, a lista de participantes e todos os lançamentos de gols e assistências (visíveis em "Ver Lançamentos") serão excluídos permanentemente. Essa ação não pode ser desfeita.
+              A pelada, a lista de participantes e todos os lançamentos de gols e assistências serão excluídos permanentemente. Essa ação não pode ser desfeita.
             </p>
 
             <div className="flex gap-2">
