@@ -6,7 +6,6 @@ import {
   RefreshCw,
   Check,
   AlertCircle,
-  History,
   Palette,
   Upload,
 } from 'lucide-react';
@@ -18,7 +17,7 @@ interface AdminViewProps {
 }
 
 export const AdminView: React.FC<AdminViewProps> = ({ onOpenCreateMatch }) => {
-  const { store, settings, auditLogs, isAdmin, loginAdmin, logoutAdmin } = usePeladaStore();
+  const { store, settings, isAdmin, loginAdmin, logoutAdmin } = usePeladaStore();
 
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
@@ -266,43 +265,6 @@ export const AdminView: React.FC<AdminViewProps> = ({ onOpenCreateMatch }) => {
             </button>
           </div>
         </form>
-      </div>
-
-      {/* Audit Logs Section - Section 17 */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl">
-        <h3 className="text-sm font-black uppercase tracking-wider text-slate-300 mb-2 flex items-center gap-2">
-          <History className="w-4 h-4 text-blue-400" />
-          <span>Auditoria Administrativa (Audit Logs)</span>
-        </h3>
-        <p className="text-xs text-slate-400 mb-3">
-          Histórico de finalizações, correções e alterações do sistema
-        </p>
-
-        {auditLogs.length === 0 ? (
-          <p className="text-xs text-slate-500 italic py-2">Nenhum registro de auditoria.</p>
-        ) : (
-          <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
-            {auditLogs.map((log) => (
-              <div
-                key={log.id}
-                className="text-xs p-2.5 rounded-xl bg-slate-950/70 border border-slate-800/80 flex items-start justify-between gap-2"
-              >
-                <div>
-                  <span className="font-bold text-emerald-400 font-mono text-[11px] block">
-                    {log.action}
-                  </span>
-                  <p className="text-slate-300 text-xs mt-0.5">{log.details}</p>
-                </div>
-                <div className="text-right shrink-0">
-                  <span className="text-[10px] text-slate-500 block font-mono">
-                    {new Date(log.createdAt).toLocaleDateString('pt-BR')}
-                  </span>
-                  <span className="text-[10px] text-slate-400">{log.performedBy}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Reset Demo Data Card */}
