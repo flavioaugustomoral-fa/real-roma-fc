@@ -5,7 +5,6 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { usePeladaStore } from '../hooks/usePeladaStore';
-import { PWAInstallButton } from './PWAInstallButton';
 import { NavTab } from './BottomNav';
 import { getEffectiveLogoUrl, DEFAULT_PELADA_LOGO } from '../assets/logo';
 
@@ -80,7 +79,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </h2>
 
             <div className="mt-4 flex flex-wrap items-center justify-center sm:justify-start gap-2">
-              <PWAInstallButton />
               {isAdmin && (
                 <button
                   onClick={onOpenCreateMatch}
