@@ -13,7 +13,7 @@ import { Play, Plus, Calendar, Shield } from 'lucide-react';
 import { Match } from './types/pelada';
 
 export default function App() {
-  const { activeMatch, matches, isAdmin } = usePeladaStore();
+  const { activeMatch, isAdmin } = usePeladaStore();
   const [currentTab, setCurrentTab] = useState<NavTab>('home');
   const [isCreateMatchOpen, setIsCreateMatchOpen] = useState(false);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
@@ -21,8 +21,11 @@ export default function App() {
   // When a match is created or chosen to play
   const [matchForLiveView, setMatchForLiveView] = useState<Match | null>(null);
 
-  // Determine which match to display on the "Pelada" tab
-  const currentMatchToDisplay = matchForLiveView || activeMatch || (matches.length > 0 ? matches[0] : null);
+  // Determine which match to display on the "Pelada" tab. Once a match is
+  // finalized it's no longer IN_PROGRESS/DRAFT, so activeMatch stops
+  // returning it and the tab falls back to "Nenhuma Pelada Ativa" — no
+  // stale finalized match lingers there inviting new lançamentos.
+  const currentMatchToDisplay = matchForLiveView || activeMatch || null;
 
   const handleMatchCreatedSuccess = (matchId: string) => {
     setIsCreateMatchOpen(false);
