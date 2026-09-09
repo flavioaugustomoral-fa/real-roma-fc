@@ -56,6 +56,10 @@ export default function App() {
                 match={currentMatchToDisplay}
                 onOpenCreateMatch={() => setIsCreateMatchOpen(true)}
                 onViewPlayerStats={(id) => setSelectedPlayerId(id)}
+                onMatchDeleted={() => {
+                  setMatchForLiveView(null);
+                  setCurrentTab('home');
+                }}
               />
             ) : (
               <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center max-w-md mx-auto my-12 shadow-2xl">

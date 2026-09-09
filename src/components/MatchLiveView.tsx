@@ -9,7 +9,8 @@ import {
   Plus,
   Minus,
   Sparkles,
-  AlertCircle
+  AlertCircle,
+  Trash2
 } from 'lucide-react';
 import { Match } from '../types/pelada';
 import { usePeladaStore } from '../hooks/usePeladaStore';
@@ -18,16 +19,19 @@ interface MatchLiveViewProps {
   match: Match;
   onOpenCreateMatch?: () => void;
   onViewPlayerStats?: (playerId: string) => void;
+  onMatchDeleted?: () => void;
 }
 
 export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
   match,
   onOpenCreateMatch,
   onViewPlayerStats,
+  onMatchDeleted,
 }) => {
   const { data, store, isAdmin } = usePeladaStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showFeed, setShowFeed] = useState(false);
   const [lastActionToast, setLastActionToast] = useState<{
     text: string;
@@ -125,6 +129,13 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
     }
   };
 
+  // Delete match (and all its launches/participants)
+  const handleConfirmDelete = () => {
+    store.deleteMatch(match.id, 'Administrador');
+    setShowDeleteModal(false);
+    onMatchDeleted?.();
+  };
+
   return (
     <div className="space-y-4 pb-20">
       {/* Toast notification */}
@@ -215,6 +226,17 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
 
           {isAdmin && (
             <div className="flex items-center gap-2">
+              {!isFinalized && (
+                <button
+                  onClick={() => setShowDeleteModal(true)}
+                  id="btn-delete-match"
+                  className="p-1.5 rounded-xl bg-slate-800 hover:bg-rose-950/60 text-slate-400 hover:text-rose-400 border border-slate-700 hover:border-rose-800/60 transition"
+                  title="Excluir Pelada"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
+
               {isDraft && (
                 <button
                   onClick={handleStartMatch}
@@ -472,6 +494,42 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
                 className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-bold text-white shadow-lg shadow-rose-950/40 transition"
               >
                 Sim, Finalizar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal to Delete Match */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-sm rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-2xl">
+            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 flex items-center justify-center mb-4 mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+
+            <h3 className="text-lg font-bold text-center text-white mb-1">
+              Excluir Pelada?
+            </h3>
+            <p className="text-xs text-center text-slate-400 mb-5 leading-relaxed">
+              A pelada, a lista de participantes e todos os lançamentos de gols e assistências (visíveis em "Ver Lançamentos") serão excluídos permanentemente. Essa ação não pode ser desfeita.
+            </p>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-semibold text-slate-300 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                id="btn-confirm-delete-match"
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-bold text-white shadow-lg shadow-rose-950/40 transition"
+              >
+                Sim, Excluir
               </button>
             </div>
           </div>
