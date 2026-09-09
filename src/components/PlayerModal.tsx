@@ -30,9 +30,6 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({ playerId, onClose }) =
               <h2 className="text-xl font-black text-white tracking-tight uppercase">
                 {summary.player.displayName}
               </h2>
-              <span className="text-xs text-slate-400">
-                Identificador único: <code className="text-slate-500 font-mono">{summary.player.id}</code>
-              </span>
             </div>
           </div>
           <button
