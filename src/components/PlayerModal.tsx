@@ -8,12 +8,12 @@ interface PlayerModalProps {
 }
 
 export const PlayerModal: React.FC<PlayerModalProps> = ({ playerId, onClose }) => {
-  const { store } = usePeladaStore();
+  const { data, store } = usePeladaStore();
 
   const summary = useMemo(() => {
     if (!playerId) return null;
     return store.getPlayerSummary(playerId);
-  }, [store, playerId]);
+  }, [store, playerId, data]);
 
   if (!playerId || !summary) return null;
 

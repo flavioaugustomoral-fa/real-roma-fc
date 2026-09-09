@@ -25,7 +25,7 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
   onOpenCreateMatch,
   onViewPlayerStats,
 }) => {
-  const { store, isAdmin } = usePeladaStore();
+  const { data, store, isAdmin } = usePeladaStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const [showFeed, setShowFeed] = useState(false);
@@ -41,7 +41,7 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
   // Get current players and scores in this match
   const matchPlayersData = useMemo(() => {
     return store.getMatchPlayers(match.id);
-  }, [store, match.id]);
+  }, [store, match.id, data]);
 
   // Filtered by search query
   const filteredPlayers = useMemo(() => {
@@ -68,7 +68,7 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
   const recentEvents = useMemo(() => {
     const all = store.getData().statEvents.filter(e => e.matchId === match.id);
     return [...all].reverse();
-  }, [store, match.id]);
+  }, [store, match.id, data]);
 
   // Trigger feedback toast
   const triggerToast = (text: string, type: 'goal' | 'assist' | 'info') => {

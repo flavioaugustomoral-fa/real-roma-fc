@@ -25,7 +25,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
   onSelectMatchToPlay,
   onViewPlayerStats,
 }) => {
-  const { matches, store, isAdmin } = usePeladaStore();
+  const { data, matches, store, isAdmin } = usePeladaStore();
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [editDate, setEditDate] = useState('');
@@ -41,12 +41,12 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
   const selectedMatch = useMemo(() => {
     if (!selectedMatchId) return null;
     return store.getMatchById(selectedMatchId);
-  }, [store, selectedMatchId]);
+  }, [store, selectedMatchId, data]);
 
   const selectedMatchStats = useMemo(() => {
     if (!selectedMatchId) return [];
     return store.getMatchPlayers(selectedMatchId);
-  }, [store, selectedMatchId]);
+  }, [store, selectedMatchId, data]);
 
   const selectedMatchTotals = useMemo(() => {
     let goals = 0;
