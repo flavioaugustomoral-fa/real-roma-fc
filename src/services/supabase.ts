@@ -172,6 +172,28 @@ export async function pushPlayer(p: Player, pin: string) {
   if (error) console.error('Erro ao salvar jogador no Supabase:', error);
 }
 
+// Renomeia (e, se o novo nome já existir em outro jogador, mescla os dados
+// nesse jogador existente). Retorna null em caso de erro (ex: PIN inválido).
+export async function renamePlayerRemote(
+  playerId: string,
+  newDisplayName: string,
+  newNormalizedName: string,
+  pin: string
+): Promise<{ merged: boolean; targetPlayerId: string } | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('admin_rename_player', {
+    p_pin: pin,
+    p_player_id: playerId,
+    p_new_display_name: newDisplayName,
+    p_new_normalized_name: newNormalizedName,
+  });
+  if (error) {
+    console.error('Erro ao renomear jogador no Supabase:', error);
+    return null;
+  }
+  return { merged: data.merged === true, targetPlayerId: data.targetPlayerId };
+}
+
 export async function pushMatch(m: Match, pin: string) {
   if (!supabase) return;
   const { error } = await supabase.rpc('admin_upsert_match', {

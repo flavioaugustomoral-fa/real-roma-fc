@@ -31,6 +31,7 @@ DROP FUNCTION IF EXISTS admin_replace_match_players(TEXT, TEXT, JSONB);
 DROP FUNCTION IF EXISTS admin_delete_stat_event(TEXT, TEXT);
 DROP FUNCTION IF EXISTS admin_insert_stat_event(TEXT, TEXT, TEXT, TEXT, stat_event_type_enum, TEXT, TIMESTAMPTZ);
 DROP FUNCTION IF EXISTS admin_add_stat_event(TEXT, TEXT, TEXT, TEXT, stat_event_type_enum, TEXT);
+DROP FUNCTION IF EXISTS admin_rename_player(TEXT, TEXT, TEXT, TEXT);
 DROP FUNCTION IF EXISTS admin_insert_audit_log(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ);
 DROP FUNCTION IF EXISTS admin_upsert_settings(TEXT, TEXT, TEXT, TEXT, TEXT);
 DROP FUNCTION IF EXISTS admin_wipe_all(TEXT);
@@ -234,6 +235,52 @@ BEGIN
 END;
 $$;
 
+-- Renomeia um jogador. Se o novo nome (já normalizado pelo cliente, mesma
+-- regra usada em toda a normalização do app) bater com o de outro jogador já
+-- existente, em vez de criar uma duplicata o jogador editado é MESCLADO no
+-- já existente: suas participações (match_players) e lançamentos
+-- (stat_events) passam a apontar para o jogador de destino, e o registro
+-- editado é apagado. Se, por acidente, o jogador editado já participava da
+-- MESMA pelada que o de destino, essa participação duplicada é descartada
+-- (não dá pra reaproveitar as duas). Retorna qual foi o resultado para o
+-- cliente atualizar o estado local de acordo.
+CREATE OR REPLACE FUNCTION admin_rename_player(
+  p_pin TEXT, p_player_id TEXT, p_new_display_name TEXT, p_new_normalized_name TEXT
+) RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_target_id TEXT;
+BEGIN
+  PERFORM check_admin_pin(p_pin);
+
+  SELECT id INTO v_target_id FROM public.players
+  WHERE normalized_name = p_new_normalized_name AND id <> p_player_id;
+
+  IF v_target_id IS NULL THEN
+    UPDATE public.players
+    SET display_name = p_new_display_name, normalized_name = p_new_normalized_name
+    WHERE id = p_player_id;
+    RETURN jsonb_build_object('merged', false, 'targetPlayerId', p_player_id);
+  END IF;
+
+  UPDATE public.match_players mp
+  SET player_id = v_target_id
+  WHERE mp.player_id = p_player_id
+    AND NOT EXISTS (
+      SELECT 1 FROM public.match_players mp2
+      WHERE mp2.match_id = mp.match_id AND mp2.player_id = v_target_id
+    );
+  -- Sobra alguma linha ainda apontando pro jogador antigo só quando havia
+  -- participação duplicada na mesma pelada — descarta.
+  DELETE FROM public.match_players WHERE player_id = p_player_id;
+
+  UPDATE public.stat_events SET player_id = v_target_id WHERE player_id = p_player_id;
+
+  DELETE FROM public.players WHERE id = p_player_id;
+
+  RETURN jsonb_build_object('merged', true, 'targetPlayerId', v_target_id);
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION admin_upsert_match(
   p_pin TEXT, p_id TEXT, p_date DATE, p_time TIME, p_status match_status_enum,
   p_created_by TEXT, p_finalized_by TEXT, p_created_at TIMESTAMPTZ, p_finalized_at TIMESTAMPTZ, p_notes TEXT
@@ -379,6 +426,7 @@ $$;
 
 GRANT EXECUTE ON FUNCTION verify_admin_pin(TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_upsert_player(TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION admin_rename_player(TEXT, TEXT, TEXT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_upsert_match(TEXT, TEXT, DATE, TIME, match_status_enum, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_delete_match(TEXT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_replace_match_players(TEXT, TEXT, JSONB) TO anon, authenticated;

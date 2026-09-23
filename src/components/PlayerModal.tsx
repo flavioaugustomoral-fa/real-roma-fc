@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { X, User, Calendar, Award, Target, Activity } from 'lucide-react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { X, Calendar, Activity, Pencil, Check, AlertTriangle } from 'lucide-react';
 import { usePeladaStore } from '../hooks/usePeladaStore';
 
 interface PlayerModalProps {
@@ -8,37 +8,132 @@ interface PlayerModalProps {
 }
 
 export const PlayerModal: React.FC<PlayerModalProps> = ({ playerId, onClose }) => {
-  const { data, store } = usePeladaStore();
+  const { data, store, isAdmin } = usePeladaStore();
 
   const summary = useMemo(() => {
     if (!playerId) return null;
     return store.getPlayerSummary(playerId);
   }, [store, playerId, data]);
 
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const [mergeNotice, setMergeNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    setIsEditingName(false);
+    setRenameError(null);
+    setMergeNotice(null);
+    if (summary) setNameInput(summary.player.displayName);
+  }, [playerId]);
+
   if (!playerId || !summary) return null;
+
+  const handleSaveName = async () => {
+    setRenameError(null);
+    setSaving(true);
+    const res = await store.renamePlayer(playerId, nameInput);
+    setSaving(false);
+
+    if (!res.success) {
+      setRenameError(res.error || 'Não foi possível renomear.');
+      return;
+    }
+
+    if (res.merged) {
+      setMergeNotice(`Dados incorporados ao jogador "${res.targetDisplayName}".`);
+      setTimeout(() => onClose(), 1800);
+    } else {
+      setIsEditingName(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-150">
       <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-slate-800 p-5 sm:p-6 shadow-2xl my-auto">
         {/* Header */}
         <div className="flex items-start justify-between pb-3 border-b border-slate-800 mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-800 flex items-center justify-center text-white font-black text-xl shadow-md shadow-emerald-950/40">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-800 flex items-center justify-center text-white font-black text-xl shadow-md shadow-emerald-950/40 shrink-0">
               {summary.player.displayName.charAt(0).toUpperCase()}
             </div>
-            <div>
-              <h2 className="text-xl font-black text-white tracking-tight uppercase">
-                {summary.player.displayName}
-              </h2>
+            <div className="min-w-0 flex-1">
+              {isEditingName ? (
+                <input
+                  type="text"
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  autoFocus
+                  className="w-full text-base font-black text-white bg-slate-950 border border-emerald-600/60 rounded-lg px-2 py-1 focus:outline-none focus:border-emerald-500"
+                />
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <h2 className="text-xl font-black text-white tracking-tight uppercase truncate">
+                    {summary.player.displayName}
+                  </h2>
+                  {isAdmin && (
+                    <button
+                      onClick={() => {
+                        setNameInput(summary.player.displayName);
+                        setIsEditingName(true);
+                        setRenameError(null);
+                      }}
+                      className="p-1 rounded-lg text-slate-500 hover:text-emerald-400 hover:bg-slate-800 transition shrink-0"
+                      title="Editar nome do jogador"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {isEditingName && (
+          <div className="mb-4 -mt-1 space-y-2">
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Se o nome novo já pertencer a outro jogador cadastrado, os dados deste jogador (gols, assistências e participações) serão incorporados a ele.
+            </p>
+            {renameError && (
+              <p className="text-xs text-rose-400 flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                {renameError}
+              </p>
+            )}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setIsEditingName(false)}
+                className="flex-1 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveName}
+                disabled={saving || !nameInput.trim()}
+                className="flex-1 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-xs font-bold text-white flex items-center justify-center gap-1.5 transition"
+              >
+                <Check className="w-3.5 h-3.5" />
+                {saving ? 'Salvando...' : 'Salvar'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {mergeNotice && (
+          <div className="mb-4 -mt-1 p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-800/60 text-xs text-emerald-300">
+            {mergeNotice}
+          </div>
+        )}
 
         {/* Big Overall Stats Card - Section 15 */}
         <div className="grid grid-cols-3 gap-2.5 mb-3 text-center">

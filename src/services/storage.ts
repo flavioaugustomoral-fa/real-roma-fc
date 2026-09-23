@@ -16,6 +16,7 @@ import {
   fetchAllRemoteData,
   pushFullSnapshot,
   pushPlayer,
+  renamePlayerRemote,
   pushMatch,
   deleteRemoteMatch,
   pushMatchPlayers,
@@ -454,6 +455,90 @@ class PeladaStore {
     };
     this.data.players.push(newPlayer);
     return { player: newPlayer, isNew: true };
+  }
+
+  // Renomeia um jogador (correção de nome digitado errado, ex: "Vini Jr" ->
+  // "Vinicius Jr"). Se o novo nome já pertencer a outro jogador cadastrado,
+  // em vez de virar uma duplicata o jogador editado é mesclado no já
+  // existente: participações e lançamentos de gol/assistência são somados
+  // ao jogador de destino, e o registro editado deixa de existir.
+  public async renamePlayer(
+    playerId: string,
+    newDisplayNameRaw: string,
+    performedBy = 'Administrador'
+  ): Promise<{ success: boolean; merged: boolean; targetDisplayName?: string; error?: string }> {
+    const player = this.getPlayerById(playerId);
+    if (!player) {
+      return { success: false, merged: false, error: 'Jogador não encontrado.' };
+    }
+
+    const newDisplayName = formatDisplayName(newDisplayNameRaw);
+    const newNormalizedName = normalizePlayerName(newDisplayNameRaw);
+    if (!newNormalizedName) {
+      return { success: false, merged: false, error: 'Informe um nome válido.' };
+    }
+    if (newNormalizedName === player.normalizedName) {
+      return { success: false, merged: false, error: 'Esse já é o nome atual do jogador.' };
+    }
+
+    const pin = this.getSessionPin();
+    let merged: boolean;
+    let targetPlayerId: string;
+
+    if (isSupabaseConfigured()) {
+      const result = await renamePlayerRemote(playerId, newDisplayName, newNormalizedName, pin);
+      if (!result) {
+        return { success: false, merged: false, error: 'Não foi possível renomear. Confira se o PIN de Admin ainda é válido.' };
+      }
+      merged = result.merged;
+      targetPlayerId = result.targetPlayerId;
+    } else {
+      const existingTarget = this.data.players.find(p => p.normalizedName === newNormalizedName && p.id !== playerId);
+      merged = !!existingTarget;
+      targetPlayerId = existingTarget?.id || playerId;
+    }
+
+    const oldDisplayName = player.displayName;
+
+    if (!merged) {
+      player.displayName = newDisplayName;
+      player.normalizedName = newNormalizedName;
+    } else {
+      // Reatribui as participações desse jogador para o de destino, exceto
+      // quando ele já participava da MESMA pelada — nesse caso a duplicata é
+      // descartada (não dá pra reaproveitar as duas participações).
+      const matchIdsForTarget = new Set(
+        this.data.matchPlayers.filter(mp => mp.playerId === targetPlayerId).map(mp => mp.matchId)
+      );
+      this.data.matchPlayers = this.data.matchPlayers
+        .filter(mp => mp.playerId !== playerId || !matchIdsForTarget.has(mp.matchId))
+        .map(mp => (mp.playerId === playerId ? { ...mp, playerId: targetPlayerId } : mp));
+
+      this.data.statEvents = this.data.statEvents.map(ev =>
+        ev.playerId === playerId ? { ...ev, playerId: targetPlayerId } : ev
+      );
+
+      this.data.players = this.data.players.filter(p => p.id !== playerId);
+    }
+
+    const targetDisplayName = merged ? (this.getPlayerById(targetPlayerId)?.displayName || newDisplayName) : newDisplayName;
+
+    const auditEntry: AuditLog = {
+      id: generateId('aud'),
+      matchId: null,
+      action: merged ? 'PLAYER_MERGED' : 'PLAYER_RENAMED',
+      details: merged
+        ? `Jogador "${oldDisplayName}" renomeado para "${newDisplayName}" — dados incorporados ao jogador já existente "${targetDisplayName}".`
+        : `Jogador "${oldDisplayName}" renomeado para "${newDisplayName}".`,
+      performedBy,
+      createdAt: new Date().toISOString(),
+    };
+    this.data.auditLogs.unshift(auditEntry);
+
+    this.persist(this.data);
+    pushAuditLog(auditEntry, pin);
+
+    return { success: true, merged, targetDisplayName };
   }
 
   // Create a new match with participant list
