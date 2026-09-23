@@ -845,7 +845,7 @@ class PeladaStore {
 
         return { game, teamA, teamB, teamAGoals, teamBGoals };
       })
-      .sort((a, b) => b.game.createdAt.localeCompare(a.game.createdAt));
+      .sort((a, b) => a.game.createdAt.localeCompare(b.game.createdAt));
   }
 
   // Classificação dos times da rodada (V/E/D), a partir do placar atual de
