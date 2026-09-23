@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import {
   Trophy,
   Calendar,
-  Medal,
   ChevronDown,
   ChevronUp,
   User,
@@ -47,6 +46,13 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
     () => matches.filter(m => m.status === 'FINALIZED').sort((a, b) => b.date.localeCompare(a.date)),
     [matches]
   );
+
+  const getRankBadgeClass = (index: number) => {
+    if (index === 0) return 'bg-amber-400/20 text-amber-300 border border-amber-400/40';
+    if (index === 1) return 'bg-slate-300/20 text-slate-200 border border-slate-300/30';
+    if (index === 2) return 'bg-amber-700/20 text-amber-400 border border-amber-700/30';
+    return 'bg-slate-800 text-slate-400';
+  };
 
   const monthNames = [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -289,8 +295,6 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
           <div className="divide-y divide-slate-800/80">
             {displayedItems.map((item) => {
               const isFirst = item.position === 1;
-              const isSecond = item.position === 2;
-              const isThird = item.position === 3;
 
               return (
                 <button
@@ -301,24 +305,12 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
                 >
                   {/* Left: Position & Player */}
                   <div className="flex items-center gap-3 min-w-0">
-                    {/* Position Medal / Badge */}
-                    <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 font-mono font-black text-sm">
-                      {isFirst ? (
-                        <div className="w-8 h-8 rounded-xl bg-amber-400/20 border border-amber-400/40 text-amber-300 flex items-center justify-center shadow-sm shadow-amber-400/20">
-                          <Medal className="w-4 h-4 text-amber-400" />
-                        </div>
-                      ) : isSecond ? (
-                        <div className="w-8 h-8 rounded-xl bg-slate-300/20 border border-slate-300/40 text-slate-200 flex items-center justify-center">
-                          <span className="text-xs font-bold">2º</span>
-                        </div>
-                      ) : isThird ? (
-                        <div className="w-8 h-8 rounded-xl bg-amber-700/20 border border-amber-700/40 text-amber-500 flex items-center justify-center">
-                          <span className="text-xs font-bold">3º</span>
-                        </div>
-                      ) : (
-                        <span className="text-slate-500 text-xs font-semibold">{item.position}º</span>
-                      )}
-                    </div>
+                    {/* Position Badge — mesmo estilo da tela inicial */}
+                    <span
+                      className={`w-8 h-8 rounded-xl text-sm font-black flex items-center justify-center shrink-0 ${getRankBadgeClass(item.position - 1)}`}
+                    >
+                      {item.position}º
+                    </span>
 
                     {/* Player Info */}
                     <div className="min-w-0">
