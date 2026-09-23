@@ -30,6 +30,7 @@ DROP FUNCTION IF EXISTS admin_upsert_match_player(TEXT, TEXT, TEXT, TEXT, TEXT, 
 DROP FUNCTION IF EXISTS admin_replace_match_players(TEXT, TEXT, JSONB);
 DROP FUNCTION IF EXISTS admin_delete_stat_event(TEXT, TEXT);
 DROP FUNCTION IF EXISTS admin_insert_stat_event(TEXT, TEXT, TEXT, TEXT, stat_event_type_enum, TEXT, TIMESTAMPTZ);
+DROP FUNCTION IF EXISTS admin_add_stat_event(TEXT, TEXT, TEXT, TEXT, stat_event_type_enum, TEXT);
 DROP FUNCTION IF EXISTS admin_insert_audit_log(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ);
 DROP FUNCTION IF EXISTS admin_upsert_settings(TEXT, TEXT, TEXT, TEXT, TEXT);
 DROP FUNCTION IF EXISTS admin_wipe_all(TEXT);
@@ -133,12 +134,10 @@ $$ LANGUAGE plpgsql IMMUTABLE;
 
 -- ==============================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
--- Leitura pública via chave anônima. Ações de Admin (criar/editar/finalizar/
--- excluir pelada, corrigir súmula, trocar configurações) NÃO são mais escritas
--- direto pelo cliente: elas só acontecem através das funções admin_* mais
--- abaixo, que conferem o PIN dentro do próprio banco antes de gravar. Lançar
--- gol/assistência continua público e direto (qualquer participante, sem PIN),
--- mas só enquanto a pelada estiver EM ANDAMENTO.
+-- Leitura pública via chave anônima. TODA escrita (inclusive lançar gol/
+-- assistência) exige o PIN de Admin e passa pelas funções admin_* mais
+-- abaixo, que conferem o PIN dentro do próprio banco antes de gravar. O
+-- cliente nunca escreve direto nas tabelas.
 -- ==============================================================================
 
 ALTER TABLE public.players ENABLE ROW LEVEL SECURITY;
@@ -178,20 +177,10 @@ CREATE POLICY "Leitura publica pelada_settings" ON public.pelada_settings FOR SE
 DROP POLICY IF EXISTS "Leitura publica stat_events" ON public.stat_events;
 CREATE POLICY "Leitura publica stat_events" ON public.stat_events FOR SELECT USING (true);
 
--- stat_events: inserção pública (qualquer participante lança seu próprio gol/
--- assistência, sem PIN), mas só enquanto a pelada estiver EM ANDAMENTO.
--- Atualização/exclusão foram removidas daqui: correções passam a exigir o PIN
--- via admin_delete_stat_event().
+-- stat_events: nenhuma escrita pública. Lançar gol/assistência exige o PIN
+-- de Admin e passa por admin_add_stat_event() (só funciona com a pelada EM
+-- ANDAMENTO); correções passam por admin_delete_stat_event().
 DROP POLICY IF EXISTS "Insercao apenas em pelada em andamento" ON public.stat_events;
-CREATE POLICY "Insercao apenas em pelada em andamento"
-ON public.stat_events
-FOR INSERT
-WITH CHECK (
-  EXISTS (
-    SELECT 1 FROM public.matches m
-    WHERE m.id = match_id AND m.status = 'IN_PROGRESS'
-  )
-);
 
 -- pelada_settings: esconde a coluna admin_pin de qualquer leitura via API,
 -- mesmo com a policy de SELECT acima liberada. Um "select *" do cliente falha
@@ -298,6 +287,22 @@ BEGIN
 END;
 $$;
 
+-- Lança gol/assistência ao vivo. Só funciona com PIN correto E a pelada
+-- realmente EM ANDAMENTO (diferente de admin_insert_stat_event, que é só
+-- para semear/restaurar peladas já finalizadas).
+CREATE OR REPLACE FUNCTION admin_add_stat_event(
+  p_pin TEXT, p_id TEXT, p_match_id TEXT, p_player_id TEXT, p_type stat_event_type_enum, p_created_by TEXT
+) RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  PERFORM check_admin_pin(p_pin);
+  IF NOT EXISTS (SELECT 1 FROM public.matches WHERE id = p_match_id AND status = 'IN_PROGRESS') THEN
+    RAISE EXCEPTION 'A pelada não está em andamento' USING ERRCODE = '22000';
+  END IF;
+  INSERT INTO public.stat_events (id, match_id, player_id, type, created_by, created_at)
+  VALUES (p_id, p_match_id, p_player_id, p_type, p_created_by, NOW());
+END;
+$$;
+
 -- Só para semear/restaurar dados de exemplo (peladas já FINALIZADAS): grava um
 -- gol/assistência ignorando a regra "só em pelada em andamento", já que aqui
 -- quem está autorizando é o PIN de Admin, não um participante ao vivo.
@@ -378,6 +383,7 @@ GRANT EXECUTE ON FUNCTION admin_upsert_match(TEXT, TEXT, DATE, TIME, match_statu
 GRANT EXECUTE ON FUNCTION admin_delete_match(TEXT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_replace_match_players(TEXT, TEXT, JSONB) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_delete_stat_event(TEXT, TEXT) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION admin_add_stat_event(TEXT, TEXT, TEXT, TEXT, stat_event_type_enum, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_insert_stat_event(TEXT, TEXT, TEXT, TEXT, stat_event_type_enum, TEXT, TIMESTAMPTZ) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_insert_audit_log(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_upsert_settings(TEXT, TEXT, TEXT, TEXT, TEXT) TO anon, authenticated;

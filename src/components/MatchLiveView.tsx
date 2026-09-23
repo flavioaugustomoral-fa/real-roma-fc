@@ -74,15 +74,15 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
     }, 2400);
   };
 
-  // Add Stat Event (+1 GOL or +1 ASSIST)
+  // Add Stat Event (+1 GOL or +1 ASSIST) — somente Admin
   const handleAddEvent = (playerId: string, playerName: string, type: 'GOAL' | 'ASSIST') => {
-    if (isFinalized && !isAdmin) return;
+    if (!isAdmin) return;
 
     store.addStatEvent({
       matchId: match.id,
       playerId,
       type,
-      createdBy: isAdmin ? 'Administrador' : 'Participante',
+      createdBy: 'Administrador',
     });
 
     if (type === 'GOAL') {
@@ -317,8 +317,8 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
                   </div>
                 </div>
 
-                {/* Big Action Buttons - Section 7: "+1 GOL" and "+1 ASSISTÊNCIA" */}
-                {(!isFinalized || isAdmin) && (
+                {/* Big Action Buttons - Section 7: "+1 GOL" and "+1 ASSISTÊNCIA" — só Admin */}
+                {isAdmin && (
                   <div className="grid grid-cols-2 gap-2.5 pt-1">
                     {/* Goal Button */}
                     <div className="flex items-center gap-1.5">
@@ -368,9 +368,11 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
                   </div>
                 )}
 
-                {isFinalized && !isAdmin && (
+                {!isAdmin && (
                   <div className="text-center py-1.5 text-xs text-slate-500 italic bg-slate-950/40 rounded-xl">
-                    Partida finalizada — estatísticas consolidadas
+                    {isFinalized
+                      ? 'Partida finalizada — estatísticas consolidadas'
+                      : 'Acompanhando ao vivo — lançamentos feitos pelo Administrador'}
                   </div>
                 )}
               </div>

@@ -219,17 +219,17 @@ export async function replaceMatchPlayers(matchId: string, list: MatchPlayer[], 
   if (error) console.error('Erro ao salvar participantes no Supabase:', error);
 }
 
-// Lançar gol/assistência continua público (qualquer participante, sem PIN) —
-// o banco só aceita enquanto a pelada estiver EM ANDAMENTO (ver RLS).
-export async function pushStatEvent(ev: StatEvent) {
+// Lançar gol/assistência exige o PIN de Admin — o banco só aceita além disso
+// enquanto a pelada estiver EM ANDAMENTO (ver admin_add_stat_event no schema).
+export async function pushStatEvent(ev: StatEvent, pin: string) {
   if (!supabase) return;
-  const { error } = await supabase.from('stat_events').insert({
-    id: ev.id,
-    match_id: ev.matchId,
-    player_id: ev.playerId,
-    type: ev.type,
-    created_by: ev.createdBy,
-    created_at: ev.createdAt,
+  const { error } = await supabase.rpc('admin_add_stat_event', {
+    p_pin: pin,
+    p_id: ev.id,
+    p_match_id: ev.matchId,
+    p_player_id: ev.playerId,
+    p_type: ev.type,
+    p_created_by: ev.createdBy,
   });
   if (error) console.error('Erro ao salvar lançamento no Supabase:', error);
 }

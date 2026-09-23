@@ -605,13 +605,13 @@ class PeladaStore {
       matchId: params.matchId,
       playerId: params.playerId,
       type: params.type,
-      createdBy: params.createdBy || 'Participante',
+      createdBy: params.createdBy || 'Administrador',
       createdAt: new Date().toISOString(),
     };
 
     this.data.statEvents.push(newEvent);
     this.persist(this.data);
-    pushStatEvent(newEvent);
+    pushStatEvent(newEvent, this.getSessionPin());
     return newEvent;
   }
 
