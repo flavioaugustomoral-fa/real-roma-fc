@@ -18,23 +18,30 @@ interface RankingsViewProps {
 }
 
 export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) => {
-  const { data, store, settings } = usePeladaStore();
+  const { data, matches, store, settings } = usePeladaStore();
 
   // Active ranking type: 'GOAL' or 'ASSIST'
   const [rankingType, setRankingType] = useState<StatEventType>('GOAL');
 
-  // Scope: 'ALL' | 'MONTH' | 'YEAR'
-  const [scope, setScope] = useState<'ALL' | 'MONTH' | 'YEAR'>('ALL');
+  // Scope: 'SEASON' (temporada) | 'MONTH' (mensal) | 'MATCH' (rodada)
+  const [scope, setScope] = useState<'SEASON' | 'MONTH' | 'MATCH'>('SEASON');
 
   // Month & Year selection (current month/year as default)
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
+  const [selectedMatchId, setSelectedMatchId] = useState<string>('');
 
   // Show full list beyond Top 10 toggle
   const [showFullList, setShowFullList] = useState(false);
 
   const availableYears = useMemo(() => store.getAvailableYears(), [store, data]);
+
+  // Rodadas finalizadas, mais recente primeiro — candidatas do seletor "Rodada".
+  const finalizedMatches = useMemo(
+    () => matches.filter(m => m.status === 'FINALIZED').sort((a, b) => b.date.localeCompare(a.date)),
+    [matches]
+  );
 
   const monthNames = [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -48,8 +55,9 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
       scope,
       month: selectedMonth,
       year: selectedYear,
+      matchId: selectedMatchId || undefined,
     });
-  }, [store, rankingType, scope, selectedMonth, selectedYear, data]);
+  }, [store, rankingType, scope, selectedMonth, selectedYear, selectedMatchId, data]);
 
   // Section 27: Top 10 by default
   const displayedItems = useMemo(() => {
@@ -120,19 +128,19 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
           </button>
         </div>
 
-        {/* Scope Selector: Geral, Mensal, Anual */}
+        {/* Scope Selector: Temporada, Mensal, Rodada */}
         <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
           <div className="flex items-center gap-1 bg-slate-950/60 p-1 rounded-xl border border-slate-800/80">
             <button
-              onClick={() => setScope('ALL')}
-              id="scope-all"
+              onClick={() => setScope('SEASON')}
+              id="scope-season"
               className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
-                scope === 'ALL'
+                scope === 'SEASON'
                   ? 'bg-slate-800 text-emerald-400 shadow-sm'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              Geral
+              Temporada
             </button>
             <button
               onClick={() => setScope('MONTH')}
@@ -146,19 +154,24 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
               Mensal
             </button>
             <button
-              onClick={() => setScope('YEAR')}
-              id="scope-year"
+              onClick={() => {
+                setScope('MATCH');
+                if (!selectedMatchId && finalizedMatches.length > 0) {
+                  setSelectedMatchId(finalizedMatches[0].id);
+                }
+              }}
+              id="scope-match"
               className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
-                scope === 'YEAR'
+                scope === 'MATCH'
                   ? 'bg-slate-800 text-emerald-400 shadow-sm'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              Anual
+              Rodada
             </button>
           </div>
 
-          {/* Sub-selectors for Month / Year */}
+          {/* Sub-selectors for Month / Year / Rodada */}
           {scope === 'MONTH' && (
             <div className="flex items-center gap-1.5">
               <select
@@ -186,7 +199,7 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
             </div>
           )}
 
-          {scope === 'YEAR' && (
+          {scope === 'SEASON' && (
             <div className="flex items-center gap-1.5">
               <select
                 value={selectedYear}
@@ -199,6 +212,26 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
                   </option>
                 ))}
               </select>
+            </div>
+          )}
+
+          {scope === 'MATCH' && (
+            <div className="flex items-center gap-1.5">
+              {finalizedMatches.length === 0 ? (
+                <span className="text-xs text-slate-500 italic">Nenhuma rodada finalizada ainda.</span>
+              ) : (
+                <select
+                  value={selectedMatchId}
+                  onChange={(e) => setSelectedMatchId(e.target.value)}
+                  className="text-xs font-semibold py-1.5 px-2.5 rounded-lg bg-slate-950 border border-slate-700 text-slate-200 focus:outline-none focus:border-emerald-500"
+                >
+                  {finalizedMatches.map(m => (
+                    <option key={m.id} value={m.id}>
+                      {m.date.split('-').reverse().join('/')}{m.time ? ` (${m.time})` : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           )}
         </div>

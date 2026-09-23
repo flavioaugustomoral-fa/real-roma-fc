@@ -1265,21 +1265,22 @@ class PeladaStore {
 
   public getRankings(params: {
     type: StatEventType;
-    scope: 'ALL' | 'MONTH' | 'YEAR';
+    scope: 'SEASON' | 'MONTH' | 'MATCH';
     month?: number; // 1-12
     year?: number;
+    matchId?: string;
   }): { items: RankingItem[]; totalCount: number; scopeLabel: string } {
     // 1. Filter ONLY FINALIZED matches
     let finalizedMatches = this.data.matches.filter(m => m.status === 'FINALIZED');
 
-    let scopeLabel = 'Geral (Todo o Histórico)';
+    let scopeLabel = 'Temporada';
 
-    if (params.scope === 'YEAR' && params.year) {
+    if (params.scope === 'SEASON' && params.year) {
       finalizedMatches = finalizedMatches.filter(m => {
         const d = new Date(m.date);
         return d.getFullYear() === params.year;
       });
-      scopeLabel = `Ano de ${params.year}`;
+      scopeLabel = `Temporada ${params.year}`;
     } else if (params.scope === 'MONTH' && params.month && params.year) {
       const monthNames = [
         'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -1293,6 +1294,12 @@ class PeladaStore {
         return y === params.year && mth === params.month;
       });
       scopeLabel = `${monthNames[params.month - 1]}/${params.year}`;
+    } else if (params.scope === 'MATCH') {
+      const match = params.matchId ? finalizedMatches.find(m => m.id === params.matchId) : undefined;
+      finalizedMatches = match ? [match] : [];
+      scopeLabel = match
+        ? `Rodada de ${match.date.split('-').reverse().join('/')}`
+        : 'Selecione uma rodada';
     }
 
     const matchIds = new Set(finalizedMatches.map(m => m.id));

@@ -28,7 +28,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const topScorersYear = useMemo(() => {
     const res = store.getRankings({
       type: 'GOAL',
-      scope: 'YEAR',
+      scope: 'SEASON',
       year: currentYear,
     });
     return res.items.slice(0, 5);
@@ -38,7 +38,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const topAssistsYear = useMemo(() => {
     const res = store.getRankings({
       type: 'ASSIST',
-      scope: 'YEAR',
+      scope: 'SEASON',
       year: currentYear,
     });
     return res.items.slice(0, 5);
