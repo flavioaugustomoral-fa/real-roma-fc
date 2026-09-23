@@ -27,6 +27,7 @@ DROP FUNCTION IF EXISTS check_admin_pin(TEXT);
 DROP FUNCTION IF EXISTS verify_admin_pin(TEXT);
 DROP FUNCTION IF EXISTS admin_upsert_player(TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ);
 DROP FUNCTION IF EXISTS admin_upsert_match(TEXT, TEXT, DATE, TIME, match_status_enum, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, TEXT);
+DROP FUNCTION IF EXISTS admin_upsert_match(TEXT, TEXT, DATE, TIME, match_status_enum, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, TEXT, TEXT);
 DROP FUNCTION IF EXISTS admin_delete_match(TEXT, TEXT);
 DROP FUNCTION IF EXISTS admin_upsert_match_player(TEXT, TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ);
 DROP FUNCTION IF EXISTS admin_replace_match_players(TEXT, TEXT, JSONB);
@@ -73,7 +74,8 @@ CREATE TABLE IF NOT EXISTS public.matches (
   finalized_by TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   finalized_at TIMESTAMPTZ,
-  notes TEXT
+  notes TEXT,
+  mvp_player_id TEXT REFERENCES public.players(id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_matches_date ON public.matches(date DESC);
@@ -329,12 +331,13 @@ $$;
 
 CREATE OR REPLACE FUNCTION admin_upsert_match(
   p_pin TEXT, p_id TEXT, p_date DATE, p_time TIME, p_status match_status_enum,
-  p_created_by TEXT, p_finalized_by TEXT, p_created_at TIMESTAMPTZ, p_finalized_at TIMESTAMPTZ, p_notes TEXT
+  p_created_by TEXT, p_finalized_by TEXT, p_created_at TIMESTAMPTZ, p_finalized_at TIMESTAMPTZ, p_notes TEXT,
+  p_mvp_player_id TEXT DEFAULT NULL
 ) RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   PERFORM check_admin_pin(p_pin);
-  INSERT INTO public.matches (id, date, time, status, created_by, finalized_by, created_at, finalized_at, notes)
-  VALUES (p_id, p_date, p_time, p_status, p_created_by, p_finalized_by, COALESCE(p_created_at, NOW()), p_finalized_at, p_notes)
+  INSERT INTO public.matches (id, date, time, status, created_by, finalized_by, created_at, finalized_at, notes, mvp_player_id)
+  VALUES (p_id, p_date, p_time, p_status, p_created_by, p_finalized_by, COALESCE(p_created_at, NOW()), p_finalized_at, p_notes, p_mvp_player_id)
   ON CONFLICT (id) DO UPDATE SET
     date = EXCLUDED.date,
     time = EXCLUDED.time,
@@ -342,7 +345,8 @@ BEGIN
     created_by = EXCLUDED.created_by,
     finalized_by = EXCLUDED.finalized_by,
     finalized_at = EXCLUDED.finalized_at,
-    notes = EXCLUDED.notes;
+    notes = EXCLUDED.notes,
+    mvp_player_id = EXCLUDED.mvp_player_id;
 END;
 $$;
 
@@ -567,7 +571,7 @@ $$;
 GRANT EXECUTE ON FUNCTION verify_admin_pin(TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_upsert_player(TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_rename_player(TEXT, TEXT, TEXT, TEXT) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION admin_upsert_match(TEXT, TEXT, DATE, TIME, match_status_enum, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, TEXT) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION admin_upsert_match(TEXT, TEXT, DATE, TIME, match_status_enum, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, TEXT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_delete_match(TEXT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_replace_match_players(TEXT, TEXT, JSONB) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_create_team(TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ) TO anon, authenticated;

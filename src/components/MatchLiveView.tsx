@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Match } from '../types/pelada';
 import { usePeladaStore } from '../hooks/usePeladaStore';
+import { LaurelWreathIcon } from './icons/LaurelWreathIcon';
 
 interface MatchLiveViewProps {
   match: Match;
@@ -39,6 +40,8 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
   const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
   const [showCreateGameModal, setShowCreateGameModal] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState<'times' | 'partidas' | 'ranking'>('times');
+  const [mvpPlayerId, setMvpPlayerId] = useState('');
+  const [mvpError, setMvpError] = useState(false);
   const [lastActionToast, setLastActionToast] = useState<{
     text: string;
     type: 'goal' | 'assist' | 'info';
@@ -109,6 +112,13 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
     [store, match.id, data]
   );
 
+  // Lista de participantes pra escolher o MVP, em ordem alfabética.
+  const mvpCandidates = useMemo(
+    () =>
+      [...matchPlayersData].sort((a, b) => a.player.displayName.localeCompare(b.player.displayName)),
+    [matchPlayersData]
+  );
+
   const getRankBadgeClass = (index: number) => {
     if (index === 0) return 'bg-amber-400/20 text-amber-300 border border-amber-400/40';
     if (index === 1) return 'bg-slate-300/20 text-slate-200 border border-slate-300/30';
@@ -164,7 +174,11 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
 
   // Finalize match
   const handleConfirmFinalize = () => {
-    const res = store.finalizeMatch(match.id, 'Administrador');
+    if (!mvpPlayerId) {
+      setMvpError(true);
+      return;
+    }
+    const res = store.finalizeMatch(match.id, 'Administrador', mvpPlayerId);
     setShowFinalizeModal(false);
     if (res.success) {
       triggerToast('Rodada finalizada oficialmente! Os rankings foram atualizados.', 'info');
@@ -295,7 +309,11 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
 
               {isInProgress && (
                 <button
-                  onClick={() => setShowFinalizeModal(true)}
+                  onClick={() => {
+                    setMvpPlayerId('');
+                    setMvpError(false);
+                    setShowFinalizeModal(true);
+                  }}
                   id="btn-finalize-match-modal"
                   className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-md shadow-rose-950/40 transition flex items-center gap-1.5"
                 >
@@ -734,6 +752,32 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
                 <span>Total de assistências:</span>
                 <span className="font-bold text-blue-400">👟 {matchTotals.totalAssists}</span>
               </div>
+            </div>
+
+            {/* Escolha do MVP — obrigatória pra finalizar */}
+            <div className="mb-5">
+              <label className="text-xs font-bold text-amber-300 mb-1.5 flex items-center gap-1.5">
+                <LaurelWreathIcon className="w-4 h-4 text-amber-400" />
+                MVP da Rodada
+              </label>
+              <select
+                value={mvpPlayerId}
+                onChange={(e) => { setMvpPlayerId(e.target.value); setMvpError(false); }}
+                id="select-mvp"
+                className={`w-full text-sm py-2 px-3 rounded-xl bg-slate-950 border text-white focus:outline-none transition ${
+                  mvpError ? 'border-rose-600' : 'border-slate-700 focus:border-amber-500'
+                }`}
+              >
+                <option value="">Selecione o jogador destaque...</option>
+                {mvpCandidates.map(({ player }) => (
+                  <option key={player.id} value={player.id}>{player.displayName}</option>
+                ))}
+              </select>
+              {mvpError && (
+                <p className="text-[11px] text-rose-400 font-medium mt-1">
+                  Escolha o MVP da rodada antes de finalizar.
+                </p>
+              )}
             </div>
 
             <div className="flex gap-2">

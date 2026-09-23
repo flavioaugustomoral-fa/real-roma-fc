@@ -56,6 +56,7 @@ export interface Match {
   createdAt: string;
   finalizedAt?: string | null;
   notes?: string;
+  mvpPlayerId?: string | null;
 }
 
 export interface AuditLog {

@@ -45,6 +45,7 @@ function matchFromDb(row: any): Match {
     createdAt: row.created_at,
     finalizedAt: row.finalized_at,
     notes: row.notes,
+    mvpPlayerId: row.mvp_player_id,
   };
 }
 
@@ -242,6 +243,7 @@ export async function pushMatch(m: Match, pin: string) {
     p_created_at: m.createdAt,
     p_finalized_at: m.finalizedAt || null,
     p_notes: m.notes || null,
+    p_mvp_player_id: m.mvpPlayerId || null,
   });
   if (error) console.error('Erro ao salvar pelada no Supabase:', error);
 }

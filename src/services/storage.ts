@@ -1117,23 +1117,31 @@ class PeladaStore {
   }
 
   // Finalize match (Official results)
-  public finalizeMatch(matchId: string, performedBy = 'Administrador'): { success: boolean; message?: string } {
+  public finalizeMatch(
+    matchId: string,
+    performedBy = 'Administrador',
+    mvpPlayerId?: string | null
+  ): { success: boolean; message?: string } {
     const match = this.data.matches.find(m => m.id === matchId);
     if (!match) return { success: false, message: 'Rodada não encontrada.' };
 
     match.status = 'FINALIZED';
     match.finalizedBy = performedBy;
     match.finalizedAt = new Date().toISOString();
+    match.mvpPlayerId = mvpPlayerId || null;
 
     const events = this.data.statEvents.filter(e => e.matchId === matchId);
     const goalsCount = events.filter(e => e.type === 'GOAL').length;
     const assistsCount = events.filter(e => e.type === 'ASSIST').length;
+    const mvpPlayer = mvpPlayerId ? this.data.players.find(p => p.id === mvpPlayerId) : undefined;
 
     const auditEntry: AuditLog = {
       id: generateId('aud'),
       matchId,
       action: 'MATCH_FINALIZED',
-      details: `Rodada finalizada oficialmente. Total de ${goalsCount} gols e ${assistsCount} assistências integrados aos rankings.`,
+      details: `Rodada finalizada oficialmente. Total de ${goalsCount} gols e ${assistsCount} assistências integrados aos rankings.${
+        mvpPlayer ? ` MVP da rodada: ${mvpPlayer.displayName}.` : ''
+      }`,
       performedBy,
       createdAt: new Date().toISOString(),
     };

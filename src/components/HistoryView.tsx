@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Match, StatEventType } from '../types/pelada';
 import { usePeladaStore } from '../hooks/usePeladaStore';
+import { LaurelWreathIcon } from './icons/LaurelWreathIcon';
 
 interface HistoryViewProps {
   onSelectMatchToPlay?: (match: Match) => void;
@@ -57,6 +58,11 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
     });
     return { goals, assists, playersCount: selectedMatchStats.length };
   }, [selectedMatchStats]);
+
+  const selectedMatchMvp = useMemo(() => {
+    if (!selectedMatch?.mvpPlayerId) return null;
+    return store.getPlayerById(selectedMatch.mvpPlayerId) || null;
+  }, [store, selectedMatch, data]);
 
   const handleOpenDetails = (match: Match) => {
     setSelectedMatchId(match.id);
@@ -258,6 +264,26 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                 <span className="text-lg font-black text-slate-200">👥 {selectedMatchTotals.playersCount}</span>
               </div>
             </div>
+
+            {/* MVP da Rodada */}
+            {selectedMatchMvp && (
+              <button
+                onClick={() => onViewPlayerStats?.(selectedMatchMvp.id)}
+                className="w-full flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-amber-500/15 to-amber-500/5 border border-amber-500/40 mb-3 shrink-0 text-left hover:border-amber-400/60 transition"
+              >
+                <div className="w-10 h-10 rounded-xl bg-amber-400/15 border border-amber-400/40 flex items-center justify-center shrink-0">
+                  <LaurelWreathIcon className="w-6 h-6 text-amber-400" />
+                </div>
+                <div className="min-w-0">
+                  <span className="block text-[10px] font-bold text-amber-300 uppercase tracking-wider">
+                    MVP da Rodada
+                  </span>
+                  <span className="block text-sm font-black text-white uppercase truncate">
+                    {selectedMatchMvp.displayName}
+                  </span>
+                </div>
+              </button>
+            )}
 
             {/* Admin Controls Ribbon */}
             {isAdmin && (
