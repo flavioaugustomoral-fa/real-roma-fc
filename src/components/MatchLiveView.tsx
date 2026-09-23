@@ -529,32 +529,48 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {teams.map(team => {
-                  const count = store.getTeamPlayerCount(team.id);
+                  const roster = store.getTeamRoster(team.id);
                   return (
                     <div
                       key={team.id}
-                      className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80"
+                      className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80"
                     >
-                      <div className="min-w-0">
-                        <span className="text-sm font-bold text-white block truncate">{team.name}</span>
-                        <span className="text-[11px] text-slate-500">{count}/6 jogadores</span>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <div className="min-w-0">
+                          <span className="text-sm font-bold text-white block truncate">{team.name}</span>
+                          <span className="text-[11px] text-slate-500">{roster.length}/6 jogadores</span>
+                        </div>
+                        {isAdmin && (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              onClick={() => setEditingTeamId(team.id)}
+                              className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-400 hover:bg-emerald-950/40 transition"
+                              title="Editar time"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteTeam(team.id, team.name)}
+                              className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-950/40 transition"
+                              title="Excluir time"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
                       </div>
-                      {isAdmin && (
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            onClick={() => setEditingTeamId(team.id)}
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-400 hover:bg-emerald-950/40 transition"
-                            title="Editar time"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteTeam(team.id, team.name)}
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-950/40 transition"
-                            title="Excluir time"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+
+                      {roster.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {roster.map(({ player }) => (
+                            <button
+                              key={player.id}
+                              onClick={() => onViewPlayerStats?.(player.id)}
+                              className="text-[11px] font-semibold text-slate-300 hover:text-emerald-400 bg-slate-900 hover:border-emerald-600/50 border border-slate-800 rounded-md px-1.5 py-0.5 transition"
+                            >
+                              {player.displayName}
+                            </button>
+                          ))}
                         </div>
                       )}
                     </div>
