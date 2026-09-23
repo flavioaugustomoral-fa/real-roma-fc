@@ -9,6 +9,8 @@ import {
   Palette,
   Upload,
   CalendarClock,
+  Pencil,
+  X,
 } from 'lucide-react';
 import { usePeladaStore } from '../hooks/usePeladaStore';
 import { getEffectiveLogoUrl, DEFAULT_PELADA_LOGO } from '../assets/logo';
@@ -37,6 +39,17 @@ export const AdminView: React.FC<AdminViewProps> = ({ onOpenCreateMatch }) => {
     store.finalizeSeason(nextSeasonLabel);
     setNextSeasonLabel('');
     setShowFinalizeSeason(false);
+  };
+
+  const [renamingSeason, setRenamingSeason] = useState(false);
+  const [seasonNameDraft, setSeasonNameDraft] = useState('');
+
+  const handleRenameSeason = () => {
+    if (!currentSeason) return;
+    const res = store.renameSeason(currentSeason.id, seasonNameDraft);
+    if (res.success) {
+      setRenamingSeason(false);
+    }
   };
 
   const [pinInput, setPinInput] = useState('');
@@ -313,17 +326,57 @@ export const AdminView: React.FC<AdminViewProps> = ({ onOpenCreateMatch }) => {
         </h3>
 
         <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <span className="text-sm font-bold text-white block truncate">
-              {currentSeason?.label || 'Nenhuma temporada aberta'}
-            </span>
-            {currentSeason && (
+          <div className="min-w-0 flex-1">
+            {renamingSeason && currentSeason ? (
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  value={seasonNameDraft}
+                  onChange={(e) => setSeasonNameDraft(e.target.value)}
+                  autoFocus
+                  className="flex-1 min-w-0 text-sm font-bold py-1.5 px-2.5 rounded-lg bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-emerald-500"
+                />
+                <button
+                  onClick={handleRenameSeason}
+                  className="p-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shrink-0 transition"
+                  title="Salvar"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => setRenamingSeason(false)}
+                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 shrink-0 transition"
+                  title="Cancelar"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-sm font-bold text-white truncate">
+                  {currentSeason?.label || 'Nenhuma temporada aberta'}
+                </span>
+                {currentSeason && (
+                  <button
+                    onClick={() => {
+                      setSeasonNameDraft(currentSeason.label);
+                      setRenamingSeason(true);
+                    }}
+                    className="p-1 rounded-lg text-slate-500 hover:text-emerald-400 hover:bg-emerald-950/40 transition shrink-0"
+                    title="Renomear temporada"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
+            {currentSeason && !renamingSeason && (
               <p className="text-[11px] text-slate-500">
                 Iniciada em {currentSeason.startDate.split('-').reverse().join('/')} · {seasonMatchCount} {seasonMatchCount === 1 ? 'rodada finalizada' : 'rodadas finalizadas'}
               </p>
             )}
           </div>
-          {!showFinalizeSeason && currentSeason && (
+          {!showFinalizeSeason && !renamingSeason && currentSeason && (
             <button
               onClick={() => setShowFinalizeSeason(true)}
               className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 shrink-0 transition"

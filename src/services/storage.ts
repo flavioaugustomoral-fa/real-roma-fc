@@ -38,6 +38,7 @@ import {
   deleteRemoteGame,
   pushSeason,
   finalizeSeasonRemote,
+  renameSeasonRemote,
 } from './supabase';
 
 const STORAGE_KEY = 'gestao_pelada_data_v1';
@@ -1436,6 +1437,41 @@ class PeladaStore {
     const pin = this.getSessionPin();
     finalizeSeasonRemote(pin, endDate, newSeason.id, newStartDate, newSeason.label).then(ok => {
       if (!ok) console.error('Não foi possível finalizar a temporada: PIN de admin desatualizado ou erro no Supabase.');
+    });
+    pushAuditLog(auditEntry, pin);
+
+    return { success: true };
+  }
+
+  // Renomeia uma temporada (atual ou já encerrada) — só corrige o rótulo,
+  // não mexe nas datas nem nas rodadas que já estão nela.
+  public renameSeason(seasonId: string, newLabel: string, performedBy = 'Administrador'): { success: boolean; error?: string } {
+    const season = this.data.seasons.find(s => s.id === seasonId);
+    if (!season) {
+      return { success: false, error: 'Temporada não encontrada.' };
+    }
+    const label = newLabel.trim();
+    if (!label) {
+      return { success: false, error: 'Informe um nome para a temporada.' };
+    }
+
+    const oldLabel = season.label;
+    season.label = label;
+
+    const auditEntry: AuditLog = {
+      id: generateId('aud'),
+      matchId: null,
+      action: 'SEASON_RENAMED',
+      details: `Temporada "${oldLabel}" renomeada para "${label}".`,
+      performedBy,
+      createdAt: new Date().toISOString(),
+    };
+    this.data.auditLogs.unshift(auditEntry);
+
+    this.persist(this.data);
+    const pin = this.getSessionPin();
+    renameSeasonRemote(pin, seasonId, label).then(ok => {
+      if (!ok) console.error('Não foi possível renomear a temporada: PIN de admin desatualizado ou erro no Supabase.');
     });
     pushAuditLog(auditEntry, pin);
 

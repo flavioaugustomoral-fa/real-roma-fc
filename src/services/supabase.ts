@@ -420,6 +420,20 @@ export async function finalizeSeasonRemote(
   return true;
 }
 
+export async function renameSeasonRemote(pin: string, seasonId: string, newLabel: string): Promise<boolean> {
+  if (!supabase) return true;
+  const { error } = await supabase.rpc('admin_rename_season', {
+    p_pin: pin,
+    p_id: seasonId,
+    p_label: newLabel,
+  });
+  if (error) {
+    console.error('Erro ao renomear temporada no Supabase:', error);
+    return false;
+  }
+  return true;
+}
+
 // Lançar gol/assistência exige o PIN de Admin — o banco só aceita além disso
 // enquanto a rodada estiver EM ANDAMENTO (ver admin_add_stat_event no schema).
 // gameId fica de fora no modo clássico (rodada sem times/partidas).

@@ -48,6 +48,7 @@ DROP FUNCTION IF EXISTS admin_upsert_settings(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT
 DROP FUNCTION IF EXISTS admin_wipe_all(TEXT);
 DROP FUNCTION IF EXISTS admin_create_season(TEXT, TEXT, TEXT, DATE, TIMESTAMPTZ);
 DROP FUNCTION IF EXISTS admin_finalize_season(TEXT, DATE, TEXT, DATE, TEXT);
+DROP FUNCTION IF EXISTS admin_rename_season(TEXT, TEXT, TEXT);
 
 -- 1. Habilitar extensão necessária para normalização de texto
 CREATE EXTENSION IF NOT EXISTS "unaccent";
@@ -470,6 +471,15 @@ BEGIN
 END;
 $$;
 
+-- Renomeia uma temporada (atual ou já encerrada) — só o rótulo.
+CREATE OR REPLACE FUNCTION admin_rename_season(p_pin TEXT, p_id TEXT, p_label TEXT)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  PERFORM check_admin_pin(p_pin);
+  UPDATE public.seasons SET label = p_label WHERE id = p_id;
+END;
+$$;
+
 -- Cria uma partida (confronto entre 2 times da MESMA rodada).
 CREATE OR REPLACE FUNCTION admin_create_game(
   p_pin TEXT, p_id TEXT, p_match_id TEXT, p_team_a_id TEXT, p_team_b_id TEXT, p_created_at TIMESTAMPTZ
@@ -640,6 +650,7 @@ GRANT EXECUTE ON FUNCTION admin_upsert_settings(TEXT, TEXT, TEXT, TEXT, TEXT, TE
 GRANT EXECUTE ON FUNCTION admin_wipe_all(TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_create_season(TEXT, TEXT, TEXT, DATE, TIMESTAMPTZ) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_finalize_season(TEXT, DATE, TEXT, DATE, TEXT) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION admin_rename_season(TEXT, TEXT, TEXT) TO anon, authenticated;
 
 -- ==============================================================================
 -- REALTIME: garante que INSERT/UPDATE/DELETE sejam transmitidos aos clientes
