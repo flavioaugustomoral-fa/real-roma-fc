@@ -13,6 +13,7 @@ import {
   ChevronRight,
   X,
   Trophy,
+  Pencil,
 } from 'lucide-react';
 import { Match } from '../types/pelada';
 import { usePeladaStore } from '../hooks/usePeladaStore';
@@ -38,6 +39,7 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
+  const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
   const [showCreateGameModal, setShowCreateGameModal] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState<'times' | 'partidas' | 'ranking'>('times');
   const [mvpPlayerId, setMvpPlayerId] = useState('');
@@ -527,13 +529,22 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
                         <span className="text-[11px] text-slate-500">{count}/6 jogadores</span>
                       </div>
                       {isAdmin && (
-                        <button
-                          onClick={() => handleDeleteTeam(team.id, team.name)}
-                          className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-950/40 transition shrink-0"
-                          title="Excluir time"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => setEditingTeamId(team.id)}
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-400 hover:bg-emerald-950/40 transition"
+                            title="Editar time"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTeam(team.id, team.name)}
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-950/40 transition"
+                            title="Excluir time"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       )}
                     </div>
                   );
@@ -845,6 +856,14 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
         />
       )}
 
+      {/* Edit Team Modal */}
+      {editingTeamId && (
+        <EditTeamModal
+          teamId={editingTeamId}
+          onClose={() => setEditingTeamId(null)}
+        />
+      )}
+
       {/* Create Game Modal */}
       {showCreateGameModal && (
         <CreateGameModal
@@ -938,6 +957,103 @@ const CreateTeamModal: React.FC<{ matchId: string; onClose: () => void }> = ({ m
               className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-sm font-bold text-white shadow-lg shadow-emerald-950/40 transition"
             >
               Criar Time
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// ------------------------------------------------------------------
+// Modal: editar time (renomear + substituir elenco, mesma regra de máx. 6)
+// ------------------------------------------------------------------
+
+const EditTeamModal: React.FC<{ teamId: string; onClose: () => void }> = ({ teamId, onClose }) => {
+  const { store, data } = usePeladaStore();
+
+  const currentTeam = useMemo(
+    () => data.teams.find(t => t.id === teamId),
+    [data.teams, teamId]
+  );
+  const roster = useMemo(() => store.getTeamRoster(teamId), [store, teamId, data]);
+
+  const [name, setName] = useState(currentTeam?.name || '');
+  const [rawText, setRawText] = useState(
+    roster.map(r => r.matchPlayer.playerNameAsEntered).join('\n')
+  );
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = store.updateTeam(teamId, name, rawText, 'Administrador');
+    if (!res.success) {
+      setError(res.error || 'Não foi possível salvar o time.');
+      return;
+    }
+    onClose();
+  };
+
+  if (!currentTeam) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-150">
+      <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-slate-800 p-5 sm:p-6 shadow-2xl my-auto">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+          <h3 className="text-base font-bold text-white flex items-center gap-2">
+            <Pencil className="w-4 h-4 text-emerald-400" />
+            Editar Time
+          </h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">Nome do Time</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => { setName(e.target.value); setError(null); }}
+              autoFocus
+              className="w-full text-sm py-2 px-3 rounded-xl bg-slate-950 border border-slate-700 text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-500 transition"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">Jogadores do time (1 por linha, máx. 6)</label>
+            <textarea
+              rows={6}
+              value={rawText}
+              onChange={(e) => { setRawText(e.target.value); setError(null); }}
+              className="w-full font-mono text-sm leading-relaxed p-3 rounded-xl bg-slate-950 border border-slate-700 text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-emerald-500 transition"
+            />
+            <p className="text-[11px] text-slate-500 mt-1">
+              Lançamentos já registrados por jogadores removidos continuam valendo no histórico da rodada.
+            </p>
+          </div>
+
+          {error && (
+            <p className="text-xs text-rose-400 font-medium bg-rose-950/30 p-2.5 rounded-lg border border-rose-800/50">
+              {error}
+            </p>
+          )}
+
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-semibold text-slate-300 transition"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              id="btn-confirm-edit-team"
+              className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-sm font-bold text-white shadow-lg shadow-emerald-950/40 transition"
+            >
+              Salvar Alterações
             </button>
           </div>
         </form>

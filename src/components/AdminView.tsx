@@ -45,6 +45,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onOpenCreateMatch }) => {
   // Settings form states
   const [peladaName, setPeladaName] = useState(settings.peladaName);
   const [venueName, setVenueName] = useState(settings.venueName);
+  const [instagramHandle, setInstagramHandle] = useState(settings.instagramHandle || '');
   const [newPin, setNewPin] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
 
@@ -72,6 +73,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onOpenCreateMatch }) => {
       peladaName: peladaName.trim() || 'Pelada do Real Roma F.C.',
       venueName: venueName.trim() || 'Arena Oficial',
       logoUrl: customLogoUrl.trim() ? getEffectiveLogoUrl(customLogoUrl.trim()) : DEFAULT_PELADA_LOGO,
+      instagramHandle: instagramHandle.trim().replace(/^@+/, ''),
       ...(newPin.trim() ? { adminPin: newPin.trim() } : {}),
     });
     setNewPin('');
@@ -210,6 +212,22 @@ export const AdminView: React.FC<AdminViewProps> = ({ onOpenCreateMatch }) => {
                 value={venueName}
                 onChange={(e) => setVenueName(e.target.value)}
                 className="w-full text-xs sm:text-sm p-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-slate-300 block mb-1">
+              Instagram do Time (opcional)
+            </label>
+            <div className="flex items-center rounded-xl bg-slate-950 border border-slate-700 focus-within:border-emerald-500 overflow-hidden">
+              <span className="pl-2.5 pr-1 text-xs sm:text-sm text-slate-500 font-bold select-none">@</span>
+              <input
+                type="text"
+                value={instagramHandle}
+                onChange={(e) => setInstagramHandle(e.target.value.replace(/^@+/, ''))}
+                placeholder="realromafc"
+                className="w-full text-xs sm:text-sm py-2.5 pr-2.5 bg-transparent text-white placeholder:text-slate-600 focus:outline-none"
               />
             </div>
           </div>

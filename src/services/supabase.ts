@@ -126,6 +126,7 @@ function settingsFromDb(row: any): RemoteSettings {
     peladaName: row.pelada_name,
     logoUrl: row.logo_url,
     venueName: row.venue_name,
+    instagramHandle: row.instagram_handle,
   };
 }
 
@@ -145,6 +146,28 @@ export interface RemoteData {
   settings: RemoteSettings | null;
 }
 
+// A coluna instagram_handle é nova: se a migração ainda não rodou neste
+// projeto, um select explícito por ela falha inteiro (diferente de select('*')
+// nas outras tabelas). Isso é sério aqui porque um settingsRes.data nulo faz o
+// app achar que o projeto Supabase está "vazio" e tentar re-semear tudo do
+// zero — por isso, ao falhar, tenta de novo sem a coluna nova em vez de
+// deixar a leitura de settings inteira quebrar.
+async function fetchSettingsRow() {
+  if (!supabase) return { data: null, error: null };
+  const full = await supabase
+    .from('pelada_settings')
+    .select('id, pelada_name, logo_url, venue_name, instagram_handle, updated_at')
+    .eq('id', SETTINGS_ROW_ID)
+    .maybeSingle();
+  if (!full.error) return full;
+  console.warn('Coluna "instagram_handle" ainda não existe em pelada_settings (rode a migração do Instagram):', full.error);
+  return supabase
+    .from('pelada_settings')
+    .select('id, pelada_name, logo_url, venue_name, updated_at')
+    .eq('id', SETTINGS_ROW_ID)
+    .maybeSingle();
+}
+
 export async function fetchAllRemoteData(): Promise<RemoteData | null> {
   if (!supabase) return null;
   try {
@@ -157,7 +180,7 @@ export async function fetchAllRemoteData(): Promise<RemoteData | null> {
       supabase.from('stat_events').select('*'),
       supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(500),
       supabase.from('seasons').select('*'),
-      supabase.from('pelada_settings').select('id, pelada_name, logo_url, venue_name, updated_at').eq('id', SETTINGS_ROW_ID).maybeSingle(),
+      fetchSettingsRow(),
     ]);
 
     if (playersRes.error) throw playersRes.error;
@@ -444,6 +467,7 @@ export async function pushSettings(s: PeladaSettings, pin: string, newPin?: stri
     p_logo_url: s.logoUrl || null,
     p_venue_name: s.venueName || null,
     p_new_pin: newPin || null,
+    p_instagram_handle: s.instagramHandle || null,
   });
   if (error) {
     console.error('Erro ao salvar configurações no Supabase:', error);

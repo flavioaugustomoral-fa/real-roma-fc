@@ -84,6 +84,7 @@ export interface PeladaSettings {
   logoUrl: string;
   adminPin: string;
   venueName: string;
+  instagramHandle?: string;
 }
 
 export interface PlayerStatSummary {

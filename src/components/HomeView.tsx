@@ -3,6 +3,7 @@ import {
   Play,
   Plus,
   ChevronRight,
+  Instagram,
 } from 'lucide-react';
 import { usePeladaStore } from '../hooks/usePeladaStore';
 import { NavTab } from './BottomNav';
@@ -75,6 +76,19 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
               {settings.peladaName || 'Pelada do Real Roma F.C.'}
             </h2>
+
+            {settings.instagramHandle && (
+              <a
+                href={`https://instagram.com/${settings.instagramHandle}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                id="link-home-instagram"
+                className="inline-flex items-center gap-1.5 mt-1.5 text-xs font-bold text-pink-400 hover:text-pink-300 transition"
+              >
+                <Instagram className="w-3.5 h-3.5" />
+                <span>@{settings.instagramHandle}</span>
+              </a>
+            )}
 
             <div className="mt-4 flex flex-wrap items-center justify-center sm:justify-start gap-2">
               {isAdmin && (

@@ -44,6 +44,7 @@ DROP FUNCTION IF EXISTS admin_create_game(TEXT, TEXT, TEXT, TEXT, TEXT, TIMESTAM
 DROP FUNCTION IF EXISTS admin_delete_game(TEXT, TEXT);
 DROP FUNCTION IF EXISTS admin_insert_audit_log(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ);
 DROP FUNCTION IF EXISTS admin_upsert_settings(TEXT, TEXT, TEXT, TEXT, TEXT);
+DROP FUNCTION IF EXISTS admin_upsert_settings(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT);
 DROP FUNCTION IF EXISTS admin_wipe_all(TEXT);
 DROP FUNCTION IF EXISTS admin_create_season(TEXT, TEXT, TEXT, DATE, TIMESTAMPTZ);
 DROP FUNCTION IF EXISTS admin_finalize_season(TEXT, DATE, TEXT, DATE, TEXT);
@@ -163,6 +164,7 @@ CREATE TABLE IF NOT EXISTS public.pelada_settings (
   logo_url TEXT,
   admin_pin TEXT NOT NULL DEFAULT '1234',
   venue_name TEXT,
+  instagram_handle TEXT,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -257,7 +259,7 @@ DROP POLICY IF EXISTS "Insercao apenas em pelada em andamento" ON public.stat_ev
 -- mesmo com a policy de SELECT acima liberada. Um "select *" do cliente falha
 -- se tentar ler admin_pin; por isso o app só faz select das colunas liberadas.
 REVOKE ALL ON public.pelada_settings FROM anon, authenticated;
-GRANT SELECT (id, pelada_name, logo_url, venue_name, updated_at) ON public.pelada_settings TO anon, authenticated;
+GRANT SELECT (id, pelada_name, logo_url, venue_name, instagram_handle, updated_at) ON public.pelada_settings TO anon, authenticated;
 
 -- ==============================================================================
 -- FUNÇÕES DE ADMIN (SECURITY DEFINER): conferem o PIN dentro do banco antes de
@@ -573,7 +575,8 @@ $$;
 -- enviado quando o Admin está trocando o PIN). Retorna FALSE se o PIN
 -- informado estiver errado (linha já existente), sem alterar nada.
 CREATE OR REPLACE FUNCTION admin_upsert_settings(
-  p_pin TEXT, p_pelada_name TEXT, p_logo_url TEXT, p_venue_name TEXT, p_new_pin TEXT DEFAULT NULL
+  p_pin TEXT, p_pelada_name TEXT, p_logo_url TEXT, p_venue_name TEXT, p_new_pin TEXT DEFAULT NULL,
+  p_instagram_handle TEXT DEFAULT NULL
 ) RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE v_current_pin TEXT;
 BEGIN
@@ -583,17 +586,18 @@ BEGIN
     RETURN FALSE;
   END IF;
 
-  INSERT INTO public.pelada_settings (id, pelada_name, logo_url, admin_pin, venue_name, updated_at)
+  INSERT INTO public.pelada_settings (id, pelada_name, logo_url, admin_pin, venue_name, instagram_handle, updated_at)
   VALUES (
     'default', p_pelada_name, p_logo_url,
     COALESCE(NULLIF(p_new_pin, ''), COALESCE(v_current_pin, '1234')),
-    p_venue_name, NOW()
+    p_venue_name, NULLIF(p_instagram_handle, ''), NOW()
   )
   ON CONFLICT (id) DO UPDATE SET
     pelada_name = EXCLUDED.pelada_name,
     logo_url = EXCLUDED.logo_url,
     admin_pin = EXCLUDED.admin_pin,
     venue_name = EXCLUDED.venue_name,
+    instagram_handle = EXCLUDED.instagram_handle,
     updated_at = NOW();
 
   RETURN TRUE;
@@ -632,7 +636,7 @@ GRANT EXECUTE ON FUNCTION admin_delete_stat_event(TEXT, TEXT) TO anon, authentic
 GRANT EXECUTE ON FUNCTION admin_add_stat_event(TEXT, TEXT, TEXT, TEXT, stat_event_type_enum, TEXT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_insert_stat_event(TEXT, TEXT, TEXT, TEXT, stat_event_type_enum, TEXT, TIMESTAMPTZ) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_insert_audit_log(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION admin_upsert_settings(TEXT, TEXT, TEXT, TEXT, TEXT) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION admin_upsert_settings(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_wipe_all(TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_create_season(TEXT, TEXT, TEXT, DATE, TIMESTAMPTZ) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_finalize_season(TEXT, DATE, TEXT, DATE, TEXT) TO anon, authenticated;

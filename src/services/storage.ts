@@ -754,6 +754,22 @@ class PeladaStore {
     return this.data.matchPlayers.filter(mp => mp.teamId === teamId).length;
   }
 
+  // Elenco atual de um time (pra pré-preencher o modal de edição).
+  public getTeamRoster(teamId: string): Array<{ matchPlayer: MatchPlayer; player: Player }> {
+    return this.data.matchPlayers
+      .filter(mp => mp.teamId === teamId)
+      .map(mp => ({
+        matchPlayer: mp,
+        player: this.getPlayerById(mp.playerId) || {
+          id: mp.playerId,
+          displayName: mp.playerNameAsEntered,
+          normalizedName: normalizePlayerName(mp.playerNameAsEntered),
+          createdAt: mp.createdAt,
+        },
+      }))
+      .sort((a, b) => a.player.displayName.localeCompare(b.player.displayName));
+  }
+
   // Cria um time dentro de uma rodada e já monta o elenco (colar lista,
   // mesma lógica de sempre). Máximo de 6 jogadores por time.
   public createTeam(
@@ -818,6 +834,78 @@ class PeladaStore {
       .then(() => pushAuditLog(auditEntry, pin));
 
     return { success: true, team: newTeam };
+  }
+
+  // Edita um time já existente: renomeia e/ou substitui o elenco (mesma
+  // regra de máx. 6 jogadores e sem duplicados de createTeam). Lançamentos já
+  // registrados por jogadores removidos do elenco permanecem no histórico da
+  // rodada (mesmo comportamento de updateMatchPlayers no modo clássico).
+  public updateTeam(
+    teamId: string,
+    nameRaw: string,
+    rawPlayerList: string,
+    performedBy = 'Administrador'
+  ): { success: boolean; error?: string } {
+    const team = this.data.teams.find(t => t.id === teamId);
+    if (!team) {
+      return { success: false, error: 'Time não encontrado.' };
+    }
+
+    const name = nameRaw.trim();
+    if (!name) {
+      return { success: false, error: 'Informe um nome para o time.' };
+    }
+
+    const parsed = parsePlayerListInput(rawPlayerList);
+    if (parsed.parsedPlayers.length === 0) {
+      return { success: false, error: 'Cole ou digite os nomes dos jogadores do time.' };
+    }
+    if (parsed.duplicates.length > 0) {
+      return { success: false, error: `Nomes duplicados na lista: ${parsed.duplicates.join(', ')}.` };
+    }
+    if (parsed.parsedPlayers.length > 6) {
+      return { success: false, error: 'Um time pode ter no máximo 6 jogadores.' };
+    }
+
+    const matchId = team.matchId;
+    team.name = name;
+
+    this.data.matchPlayers = this.data.matchPlayers.filter(mp => mp.teamId !== teamId);
+
+    const newMatchPlayers: MatchPlayer[] = [];
+    const newPlayers: Player[] = [];
+    parsed.parsedPlayers.forEach(item => {
+      const { player, isNew } = this.findOrCreatePlayer(item.originalName);
+      if (isNew) newPlayers.push(player);
+      const mp: MatchPlayer = {
+        id: generateId('mp'),
+        matchId,
+        playerId: player.id,
+        playerNameAsEntered: item.originalName,
+        teamId,
+        createdAt: new Date().toISOString(),
+      };
+      this.data.matchPlayers.push(mp);
+      newMatchPlayers.push(mp);
+    });
+
+    const auditEntry: AuditLog = {
+      id: generateId('aud'),
+      matchId,
+      action: 'TEAM_UPDATED',
+      details: `Time "${name}" editado — elenco atualizado com ${parsed.parsedPlayers.length} jogadores.`,
+      performedBy,
+      createdAt: new Date().toISOString(),
+    };
+    this.data.auditLogs.unshift(auditEntry);
+
+    this.persist(this.data);
+    const pin = this.getSessionPin();
+    Promise.all([pushTeam(team, pin), ...newPlayers.map(p => pushPlayer(p, pin))])
+      .then(() => setTeamRoster(teamId, matchId, newMatchPlayers, pin))
+      .then(() => pushAuditLog(auditEntry, pin));
+
+    return { success: true };
   }
 
   // Exclui um time. Jogadores perdem a participação naquele time, e
