@@ -1599,11 +1599,22 @@ class PeladaStore {
   }
 
   // Individual Player Summary across all finalized matches
+  // Estatísticas do perfil ficam sempre restritas à temporada atual (aberta)
+  // — pra outros períodos (temporada passada, mês, rodada específica) o
+  // jogador deve usar os filtros da aba Rankings, que já cobrem isso. Se
+  // ainda não houver nenhuma temporada cadastrada, cai no histórico
+  // completo em vez de zerar tudo.
   public getPlayerSummary(playerId: string): PlayerStatSummary | null {
     const player = this.getPlayerById(playerId);
     if (!player) return null;
 
-    const finalizedMatches = this.data.matches.filter(m => m.status === 'FINALIZED');
+    let finalizedMatches = this.data.matches.filter(m => m.status === 'FINALIZED');
+    const currentSeason = this.getCurrentSeason();
+    if (currentSeason) {
+      finalizedMatches = finalizedMatches.filter(m =>
+        m.date >= currentSeason.startDate && (currentSeason.endDate === null || m.date <= currentSeason.endDate)
+      );
+    }
     const finalizedMatchMap = new Map(finalizedMatches.map(m => [m.id, m]));
 
     // Matches where player participated officially

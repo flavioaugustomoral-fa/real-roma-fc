@@ -11,6 +11,8 @@ interface PlayerModalProps {
 export const PlayerModal: React.FC<PlayerModalProps> = ({ playerId, onClose }) => {
   const { data, store, isAdmin } = usePeladaStore();
 
+  const currentSeason = useMemo(() => store.getCurrentSeason(), [store, data]);
+
   const summary = useMemo(() => {
     if (!playerId) return null;
     return store.getPlayerSummary(playerId);
@@ -135,6 +137,12 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({ playerId, onClose }) =
             {mergeNotice}
           </div>
         )}
+
+        {/* Aviso de escopo: perfil é sempre da temporada atual */}
+        <p className="text-[11px] text-slate-500 mb-3 text-center leading-relaxed">
+          Estatísticas de <span className="text-slate-300 font-semibold">{currentSeason?.label || 'temporada atual'}</span>.
+          Para outra temporada, mês ou rodada específica, use os filtros na aba <span className="text-slate-300 font-semibold">Rankings</span>.
+        </p>
 
         {/* Big Overall Stats Card - Section 15 */}
         <div className="grid grid-cols-3 gap-2.5 mb-3 text-center">
