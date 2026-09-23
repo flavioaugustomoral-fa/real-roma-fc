@@ -83,6 +83,30 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
     return { totalGoals, totalAssists, totalPlayers: matchPlayersData.length };
   }, [matchPlayersData]);
 
+  // Ranking da rodada (soma de todas as partidas dela) — atualiza sozinho
+  // conforme os lançamentos entram, igual ao resto do app.
+  const rodadaGoalRanking = useMemo(
+    () =>
+      matchPlayersData
+        .filter(item => item.goals > 0)
+        .sort((a, b) => b.goals - a.goals || a.player.displayName.localeCompare(b.player.displayName)),
+    [matchPlayersData]
+  );
+  const rodadaAssistRanking = useMemo(
+    () =>
+      matchPlayersData
+        .filter(item => item.assists > 0)
+        .sort((a, b) => b.assists - a.assists || a.player.displayName.localeCompare(b.player.displayName)),
+    [matchPlayersData]
+  );
+
+  const getRankBadgeClass = (index: number) => {
+    if (index === 0) return 'bg-amber-400/20 text-amber-300 border border-amber-400/40';
+    if (index === 1) return 'bg-slate-300/20 text-slate-200 border border-slate-300/30';
+    if (index === 2) return 'bg-amber-700/20 text-amber-400 border border-amber-700/30';
+    return 'bg-slate-800 text-slate-400';
+  };
+
   // Trigger feedback toast
   const triggerToast = (text: string, type: 'goal' | 'assist' | 'info') => {
     setLastActionToast({ text, type });
@@ -513,6 +537,79 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Ranking da Rodada (gols e assistências, somando todas as partidas) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
+              <div className="flex items-center gap-2 pb-2 border-b border-slate-800/80 mb-3">
+                <span className="text-lg">⚽</span>
+                <h3 className="text-xs font-black uppercase tracking-wider text-slate-200">
+                  Artilharia da Rodada
+                </h3>
+              </div>
+
+              {rodadaGoalRanking.length === 0 ? (
+                <p className="text-xs text-slate-500 italic py-4 text-center">Nenhum gol registrado ainda.</p>
+              ) : (
+                <div className="space-y-2">
+                  {rodadaGoalRanking.map((item, i) => (
+                    <button
+                      key={item.player.id}
+                      onClick={() => onViewPlayerStats?.(item.player.id)}
+                      className="w-full flex items-center justify-between p-2 rounded-xl bg-slate-950/60 hover:bg-slate-800/60 transition text-left group"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className={`w-6 h-6 rounded-lg text-xs font-black flex items-center justify-center ${getRankBadgeClass(i)}`}>
+                          {i + 1}º
+                        </span>
+                        <span className="text-sm font-bold text-white group-hover:text-emerald-400 transition truncate uppercase">
+                          {item.player.displayName}
+                        </span>
+                      </div>
+                      <span className="text-sm font-black text-emerald-400 shrink-0">
+                        {item.goals} {item.goals === 1 ? 'gol' : 'gols'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
+              <div className="flex items-center gap-2 pb-2 border-b border-slate-800/80 mb-3">
+                <span className="text-lg">👟</span>
+                <h3 className="text-xs font-black uppercase tracking-wider text-slate-200">
+                  Garçons da Rodada
+                </h3>
+              </div>
+
+              {rodadaAssistRanking.length === 0 ? (
+                <p className="text-xs text-slate-500 italic py-4 text-center">Nenhuma assistência registrada ainda.</p>
+              ) : (
+                <div className="space-y-2">
+                  {rodadaAssistRanking.map((item, i) => (
+                    <button
+                      key={item.player.id}
+                      onClick={() => onViewPlayerStats?.(item.player.id)}
+                      className="w-full flex items-center justify-between p-2 rounded-xl bg-slate-950/60 hover:bg-slate-800/60 transition text-left group"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className={`w-6 h-6 rounded-lg text-xs font-black flex items-center justify-center ${getRankBadgeClass(i)}`}>
+                          {i + 1}º
+                        </span>
+                        <span className="text-sm font-bold text-white group-hover:text-blue-400 transition truncate uppercase">
+                          {item.player.displayName}
+                        </span>
+                      </div>
+                      <span className="text-sm font-black text-blue-400 shrink-0">
+                        {item.assists} {item.assists === 1 ? 'assist' : 'assists'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </>
       )}
