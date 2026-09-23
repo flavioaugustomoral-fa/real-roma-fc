@@ -1,11 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import {
   Shield,
-  KeyRound,
   Plus,
-  RefreshCw,
   Check,
-  AlertCircle,
   Palette,
   Upload,
   CalendarClock,
@@ -419,47 +416,6 @@ export const AdminView: React.FC<AdminViewProps> = ({ onOpenCreateMatch }) => {
         )}
       </div>
 
-      {/* Reset Demo Data Card */}
-      <div className="p-4 bg-slate-900/50 border border-slate-800 rounded-2xl flex items-center justify-between gap-3">
-        <div>
-          <span className="text-xs font-bold text-slate-300 block">Restaurar Dados Iniciais</span>
-          <p className="text-[11px] text-slate-500">
-            Restaura o histórico de exemplo (rodadas de agosto/setembro com João, Pedro e Carlos).
-          </p>
-        </div>
-        <button
-          onClick={() => {
-            if (confirm('Deseja restaurar as rodadas e rankings padrão de exemplo?')) {
-              store.resetToDefaultSeed();
-            }
-          }}
-          className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 flex items-center gap-1 shrink-0 transition"
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-          <span>Restaurar</span>
-        </button>
-      </div>
-
-      {/* Wipe All Data Card */}
-      <div className="p-4 bg-slate-900/50 border border-rose-900/40 rounded-2xl flex items-center justify-between gap-3">
-        <div>
-          <span className="text-xs font-bold text-rose-300 block">Apagar Todos os Dados</span>
-          <p className="text-[11px] text-slate-500">
-            Remove jogadores, rodadas e lançamentos de exemplo, deixando o app zerado para uso real. Não afeta nome do grupo, logo ou PIN.
-          </p>
-        </div>
-        <button
-          onClick={() => {
-            if (confirm('Isso vai APAGAR todos os jogadores, rodadas e lançamentos, para todo mundo. Essa ação não pode ser desfeita. Confirma?')) {
-              store.wipeAllData();
-            }
-          }}
-          className="px-3 py-1.5 rounded-xl bg-rose-950/60 hover:bg-rose-900/60 border border-rose-800/60 text-xs font-semibold text-rose-300 flex items-center gap-1 shrink-0 transition"
-        >
-          <AlertCircle className="w-3.5 h-3.5" />
-          <span>Apagar Tudo</span>
-        </button>
-      </div>
     </div>
   );
 };
