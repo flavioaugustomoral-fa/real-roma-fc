@@ -717,15 +717,20 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
               <p className="text-xs text-slate-500 italic py-4 text-center">Nenhum time criado ainda.</p>
             ) : (
               <div className="space-y-2">
-                {/* Column headers, hidden on very small screens */}
-                <div className="hidden sm:grid grid-cols-[1fr_repeat(6,auto)] gap-2 px-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                  <span>Time</span>
-                  <span className="w-8 text-center">J</span>
-                  <span className="w-8 text-center">V</span>
-                  <span className="w-8 text-center">E</span>
-                  <span className="w-8 text-center">D</span>
-                  <span className="w-10 text-center">SG</span>
-                  <span className="w-10 text-center">Pts</span>
+                {/* Column headers — mesma estrutura flex das linhas abaixo, pra alinhar certinho */}
+                <div className="flex items-center justify-between gap-2 px-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <span className="w-6 shrink-0" aria-hidden="true" />
+                    <span>Time</span>
+                  </div>
+                  <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+                    <span className="w-6 text-center" title="Jogos">J</span>
+                    <span className="w-6 text-center" title="Vitórias">V</span>
+                    <span className="w-6 text-center" title="Empates">E</span>
+                    <span className="w-6 text-center" title="Derrotas">D</span>
+                    <span className="w-8 text-center" title="Saldo de gols">SG</span>
+                    <span className="w-8 text-center" title="Pontos">Pts</span>
+                  </div>
                 </div>
                 {teamStandings.map((row, i) => (
                   <div
@@ -743,7 +748,7 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
                       <span className="w-6 text-center text-emerald-400 font-bold" title="Vitórias">{row.wins}</span>
                       <span className="w-6 text-center text-slate-300" title="Empates">{row.draws}</span>
                       <span className="w-6 text-center text-rose-400" title="Derrotas">{row.losses}</span>
-                      <span className="w-8 text-center text-slate-400 hidden sm:inline" title="Saldo de gols">
+                      <span className="w-8 text-center text-slate-400" title="Saldo de gols">
                         {row.goalsFor - row.goalsAgainst > 0 ? '+' : ''}{row.goalsFor - row.goalsAgainst}
                       </span>
                       <span className="w-8 text-center text-amber-300 font-black" title="Pontos">{row.points}</span>
