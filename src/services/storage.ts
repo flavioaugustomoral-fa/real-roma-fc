@@ -1017,7 +1017,9 @@ class PeladaStore {
     });
 
     return Array.from(table.values()).sort((x, y) => {
-      if (y.points !== x.points) return y.points - x.points;
+      if (y.wins !== x.wins) return y.wins - x.wins;
+      if (y.draws !== x.draws) return y.draws - x.draws;
+      if (x.losses !== y.losses) return x.losses - y.losses;
       const sgX = x.goalsFor - x.goalsAgainst;
       const sgY = y.goalsFor - y.goalsAgainst;
       if (sgY !== sgX) return sgY - sgX;
