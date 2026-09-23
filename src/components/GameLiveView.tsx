@@ -134,6 +134,15 @@ export const GameLiveView: React.FC<GameLiveViewProps> = ({
                         <Minus className="w-3 h-3" />
                       </button>
                     )}
+                    {assists > 0 && (
+                      <button
+                        onClick={() => handleRemoveLast(player.id, player.displayName, 'ASSIST')}
+                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-rose-400 border border-slate-700 transition"
+                        title="Remover 1 assistência"
+                      >
+                        <Minus className="w-3 h-3" />
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
