@@ -85,7 +85,7 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
                 <span>Rankings Oficiais</span>
               </h2>
               <p className="text-xs text-slate-400">
-                Calculados exclusivamente a partir das peladas finalizadas
+                Calculados exclusivamente a partir das rodadas finalizadas
               </p>
             </div>
           </div>
@@ -221,7 +221,7 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
 
         {/* Tie-breaker rule indicator as per Section 27 */}
         <span className="text-[10px] text-slate-500 font-mono hidden sm:inline">
-          Desempate: Menos peladas (maior média)
+          Desempate: Menos rodadas (maior média)
         </span>
       </div>
 
@@ -234,7 +234,7 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
               Nenhuma estatística registrada no período selecionado.
             </p>
             <p className="text-xs text-slate-500 mt-1">
-              Finalize uma pelada para que seus resultados apareçam aqui.
+              Finalize uma rodada para que seus resultados apareçam aqui.
             </p>
           </div>
         ) : (
@@ -285,9 +285,9 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
                         )}
                       </div>
                       <span className="text-[11px] text-slate-400 flex items-center gap-2">
-                        <span>{item.matchesPlayed} {item.matchesPlayed === 1 ? 'pelada' : 'peladas'}</span>
+                        <span>{item.matchesPlayed} {item.matchesPlayed === 1 ? 'rodada' : 'rodadas'}</span>
                         <span className="text-slate-600">•</span>
-                        <span>Média {item.average.toFixed(2)} / pelada</span>
+                        <span>Média {item.average.toFixed(2)} / rodada</span>
                       </span>
                     </div>
                   </div>

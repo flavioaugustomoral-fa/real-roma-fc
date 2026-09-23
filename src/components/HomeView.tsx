@@ -86,7 +86,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 border border-slate-700 transition active:scale-95"
                 >
                   <Plus className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Criar Nova Pelada</span>
+                  <span>Criar Nova Rodada</span>
                 </button>
               )}
             </div>
@@ -107,7 +107,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-black uppercase tracking-wider bg-white/30 px-2 py-0.5 rounded-full">
-                  Pelada Ao Vivo Agora
+                  Rodada Ao Vivo Agora
                 </span>
                 <span className="text-xs font-mono opacity-90">{activeMatch.time || ''}</span>
               </div>

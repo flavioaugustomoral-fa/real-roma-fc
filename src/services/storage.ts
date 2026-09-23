@@ -193,7 +193,7 @@ function getInitialSeedData(): StorageData {
       finalizedBy: 'Administrador',
       createdAt: `${ms.date}T${ms.time}:00Z`,
       finalizedAt: `${ms.date}T21:15:00Z`,
-      notes: 'Pelada oficial finalizada',
+      notes: 'Rodada oficial finalizada',
     });
 
     ms.players.forEach(pName => {
@@ -245,7 +245,7 @@ function getInitialSeedData(): StorageData {
       id: generateId('aud'),
       matchId: ms.id,
       action: 'MATCH_FINALIZED',
-      details: `Pelada de ${ms.date} finalizada oficialmente pelo Administrador.`,
+      details: `Rodada de ${ms.date} finalizada oficialmente pelo Administrador.`,
       performedBy: 'Administrador',
       createdAt: `${ms.date}T21:15:00Z`,
     });
@@ -599,7 +599,7 @@ class PeladaStore {
       id: generateId('aud'),
       matchId,
       action: 'MATCH_CREATED',
-      details: `Pelada criada com ${parsed.parsedPlayers.length} jogadores para a data ${params.date}.`,
+      details: `Rodada criada com ${parsed.parsedPlayers.length} jogadores para a data ${params.date}.`,
       performedBy: params.createdBy || 'Administrador',
       createdAt: new Date().toISOString(),
     };
@@ -625,7 +625,7 @@ class PeladaStore {
       id: generateId('aud'),
       matchId,
       action: 'MATCH_STARTED',
-      details: 'Pelada iniciada. Lançamentos liberados para os participantes.',
+      details: 'Rodada iniciada. Lançamentos liberados para os participantes.',
       performedBy,
       createdAt: new Date().toISOString(),
     };
@@ -762,7 +762,7 @@ class PeladaStore {
   // Finalize match (Official results)
   public finalizeMatch(matchId: string, performedBy = 'Administrador'): { success: boolean; message?: string } {
     const match = this.data.matches.find(m => m.id === matchId);
-    if (!match) return { success: false, message: 'Pelada não encontrada.' };
+    if (!match) return { success: false, message: 'Rodada não encontrada.' };
 
     match.status = 'FINALIZED';
     match.finalizedBy = performedBy;
@@ -776,7 +776,7 @@ class PeladaStore {
       id: generateId('aud'),
       matchId,
       action: 'MATCH_FINALIZED',
-      details: `Pelada finalizada oficialmente. Total de ${goalsCount} gols e ${assistsCount} assistências integrados aos rankings.`,
+      details: `Rodada finalizada oficialmente. Total de ${goalsCount} gols e ${assistsCount} assistências integrados aos rankings.`,
       performedBy,
       createdAt: new Date().toISOString(),
     };
@@ -807,7 +807,7 @@ class PeladaStore {
       id: generateId('aud'),
       matchId,
       action: 'MATCH_DETAILS_UPDATED',
-      details: `Detalhes da pelada atualizados (${updates.date || match.date}).`,
+      details: `Detalhes da rodada atualizados (${updates.date || match.date}).`,
       performedBy,
       createdAt: new Date().toISOString(),
     };
@@ -880,7 +880,7 @@ class PeladaStore {
       id: generateId('aud'),
       matchId: null,
       action: 'MATCH_DELETED',
-      details: `Pelada ${matchId} e seus eventos excluídos pelo Administrador.`,
+      details: `Rodada ${matchId} e seus eventos excluídos pelo Administrador.`,
       performedBy,
       createdAt: new Date().toISOString(),
     };

@@ -109,7 +109,7 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
   // Start match
   const handleStartMatch = () => {
     store.startMatch(match.id, 'Administrador');
-    triggerToast('Pelada iniciada! Lançamentos liberados.', 'info');
+    triggerToast('Rodada iniciada! Lançamentos liberados.', 'info');
   };
 
   // Finalize match
@@ -117,7 +117,7 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
     const res = store.finalizeMatch(match.id, 'Administrador');
     setShowFinalizeModal(false);
     if (res.success) {
-      triggerToast('Pelada finalizada oficialmente! Os rankings foram atualizados.', 'info');
+      triggerToast('Rodada finalizada oficialmente! Os rankings foram atualizados.', 'info');
     }
   };
 
@@ -162,10 +162,10 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
             />
             <span className="text-xs font-black uppercase tracking-wider text-slate-200">
               {isInProgress
-                ? 'Pelada em Andamento'
+                ? 'Rodada em Andamento'
                 : isFinalized
-                ? 'Pelada Finalizada (Oficial)'
-                : 'Pelada Agendada (Rascunho)'}
+                ? 'Rodada Finalizada (Oficial)'
+                : 'Rodada Agendada (Rascunho)'}
             </span>
           </div>
 
@@ -213,7 +213,7 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
                   onClick={() => setShowDeleteModal(true)}
                   id="btn-delete-match"
                   className="p-1.5 rounded-xl bg-slate-800 hover:bg-rose-950/60 text-slate-400 hover:text-rose-400 border border-slate-700 hover:border-rose-800/60 transition"
-                  title="Excluir Pelada"
+                  title="Excluir Rodada"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -225,7 +225,7 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
                   id="btn-start-match"
                   className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow transition"
                 >
-                  Iniciar Pelada Agora
+                  Iniciar Rodada Agora
                 </button>
               )}
 
@@ -236,7 +236,7 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
                   className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-md shadow-rose-950/40 transition flex items-center gap-1.5"
                 >
                   <CheckCircle className="w-3.5 h-3.5" />
-                  <span>Finalizar Pelada</span>
+                  <span>Finalizar Rodada</span>
                 </button>
               )}
 
@@ -390,7 +390,7 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
             </div>
 
             <h3 className="text-lg font-bold text-center text-white mb-1">
-              Finalizar Pelada?
+              Finalizar Rodada?
             </h3>
             <p className="text-xs text-center text-slate-400 mb-4 leading-relaxed">
               Ao finalizar, os dados tornam-se oficiais e serão integrados imediatamente aos rankings gerais, mensais e anuais.
@@ -446,10 +446,10 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
             </div>
 
             <h3 className="text-lg font-bold text-center text-white mb-1">
-              Excluir Pelada?
+              Excluir Rodada?
             </h3>
             <p className="text-xs text-center text-slate-400 mb-5 leading-relaxed">
-              A pelada, a lista de participantes e todos os lançamentos de gols e assistências serão excluídos permanentemente. Essa ação não pode ser desfeita.
+              A rodada, a lista de participantes e todos os lançamentos de gols e assistências serão excluídos permanentemente. Essa ação não pode ser desfeita.
             </p>
 
             <div className="flex gap-2">

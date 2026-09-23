@@ -23,7 +23,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) 
     { id: 'home', label: 'Início', icon: Home },
     {
       id: 'match',
-      label: 'Pelada',
+      label: 'Rodada',
       icon: Play,
       badge: isMatchLive ? 'AO VIVO' : undefined,
       badgeColor: 'bg-rose-500 animate-pulse',

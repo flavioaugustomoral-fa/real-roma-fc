@@ -81,7 +81,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onOpenCreateMatch }) => {
 
           <h2 className="text-xl font-black text-white mb-2">Área Administrativa</h2>
           <p className="text-xs text-slate-400 mb-6 leading-relaxed">
-            Área restrita para o administrador criar peladas, oficializar resultados, corrigir súmulas e gerenciar a identidade da pelada.
+            Área restrita para o administrador criar rodadas, oficializar resultados, corrigir súmulas e gerenciar a identidade da pelada.
           </p>
 
           <form onSubmit={handleAdminLogin} className="space-y-4">
@@ -153,7 +153,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onOpenCreateMatch }) => {
         </div>
         <div>
           <h3 className="text-sm sm:text-base font-extrabold text-white group-hover:text-emerald-400 transition">
-            Criar Nova Pelada
+            Criar Nova Rodada
           </h3>
           <p className="text-xs text-slate-400">
             Cole a lista de participantes e inicie a partida
@@ -217,7 +217,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onOpenCreateMatch }) => {
                   Escudo Oficial Atual
                 </span>
                 <p className="text-[11px] text-slate-500 truncate">
-                  O logo é exibido no cabeçalho, início, tela da pelada e rankings.
+                  O logo é exibido no cabeçalho, início, tela da rodada e rankings.
                 </p>
               </div>
               <label className="cursor-pointer px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 flex items-center gap-1.5 shrink-0 transition">
@@ -272,12 +272,12 @@ export const AdminView: React.FC<AdminViewProps> = ({ onOpenCreateMatch }) => {
         <div>
           <span className="text-xs font-bold text-slate-300 block">Restaurar Dados Iniciais</span>
           <p className="text-[11px] text-slate-500">
-            Restaura o histórico de exemplo (peladas de agosto/setembro com João, Pedro e Carlos).
+            Restaura o histórico de exemplo (rodadas de agosto/setembro com João, Pedro e Carlos).
           </p>
         </div>
         <button
           onClick={() => {
-            if (confirm('Deseja restaurar as peladas e rankings padrão de exemplo?')) {
+            if (confirm('Deseja restaurar as rodadas e rankings padrão de exemplo?')) {
               store.resetToDefaultSeed();
             }
           }}
@@ -293,12 +293,12 @@ export const AdminView: React.FC<AdminViewProps> = ({ onOpenCreateMatch }) => {
         <div>
           <span className="text-xs font-bold text-rose-300 block">Apagar Todos os Dados</span>
           <p className="text-[11px] text-slate-500">
-            Remove jogadores, peladas e lançamentos de exemplo, deixando o app zerado para uso real. Não afeta nome do grupo, logo ou PIN.
+            Remove jogadores, rodadas e lançamentos de exemplo, deixando o app zerado para uso real. Não afeta nome do grupo, logo ou PIN.
           </p>
         </div>
         <button
           onClick={() => {
-            if (confirm('Isso vai APAGAR todos os jogadores, peladas e lançamentos, para todo mundo. Essa ação não pode ser desfeita. Confirma?')) {
+            if (confirm('Isso vai APAGAR todos os jogadores, rodadas e lançamentos, para todo mundo. Essa ação não pode ser desfeita. Confirma?')) {
               store.wipeAllData();
             }
           }}

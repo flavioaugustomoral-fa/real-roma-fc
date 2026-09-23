@@ -157,7 +157,7 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({ playerId, onClose }) =
 
           <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80">
             <span className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-              Peladas
+              Rodadas
             </span>
             <span className="text-2xl font-black text-slate-200">
               {summary.matchesPlayed}
@@ -174,7 +174,7 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({ playerId, onClose }) =
             <span className="text-xl font-black text-emerald-400">
               {summary.goalsPerMatch.toFixed(2)}
             </span>
-            <span className="block text-[10px] text-slate-400 mt-0.5">por pelada disputada</span>
+            <span className="block text-[10px] text-slate-400 mt-0.5">por rodada disputada</span>
           </div>
 
           <div className="bg-blue-950/30 p-3 rounded-xl border border-blue-800/50">
@@ -184,7 +184,7 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({ playerId, onClose }) =
             <span className="text-xl font-black text-blue-400">
               {summary.assistsPerMatch.toFixed(2)}
             </span>
-            <span className="block text-[10px] text-slate-400 mt-0.5">por pelada disputada</span>
+            <span className="block text-[10px] text-slate-400 mt-0.5">por rodada disputada</span>
           </div>
         </div>
 
@@ -197,7 +197,7 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({ playerId, onClose }) =
 
           {summary.history.length === 0 ? (
             <p className="text-xs text-slate-500 italic py-4 text-center">
-              Nenhuma participação registrada em peladas finalizadas.
+              Nenhuma participação registrada em rodadas finalizadas.
             </p>
           ) : (
             <div className="max-h-56 overflow-y-auto rounded-xl border border-slate-800/80 divide-y divide-slate-800/60 bg-slate-950/50">

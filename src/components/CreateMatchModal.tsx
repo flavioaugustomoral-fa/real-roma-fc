@@ -78,7 +78,7 @@ Thiago`;
     setSubmitError(null);
 
     if (parseResult.parsedPlayers.length === 0) {
-      setSubmitError('Cole ou digite os nomes dos jogadores da pelada.');
+      setSubmitError('Cole ou digite os nomes dos jogadores da rodada.');
       return;
     }
 
@@ -114,7 +114,7 @@ Thiago`;
               <Users className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white leading-tight">Nova Pelada</h2>
+              <h2 className="text-lg font-bold text-white leading-tight">Nova Rodada</h2>
               <p className="text-xs text-slate-400">Cole a lista de participantes da partida</p>
             </div>
           </div>
@@ -132,7 +132,7 @@ Thiago`;
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center gap-1">
                 <Calendar className="w-3.5 h-3.5 text-emerald-400" />
-                Data da Pelada
+                Data da Rodada
               </label>
               <input
                 type="date"
@@ -252,7 +252,7 @@ Thiago`;
               className="w-4 h-4 rounded text-emerald-600 bg-slate-950 border-slate-700 focus:ring-emerald-500"
             />
             <span className="text-xs font-semibold text-slate-200">
-              Iniciar a pelada imediatamente (liberar lançamentos)
+              Iniciar a rodada imediatamente (liberar lançamentos)
             </span>
           </label>
 
@@ -272,7 +272,7 @@ Thiago`;
               className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:pointer-events-none text-sm font-bold text-white shadow-lg shadow-emerald-950/40 transition flex items-center justify-center gap-2"
             >
               <Play className="w-4 h-4 fill-white" />
-              <span>{startImmediately ? 'Iniciar Pelada' : 'Salvar Rascunho'}</span>
+              <span>{startImmediately ? 'Iniciar Rodada' : 'Salvar Rascunho'}</span>
             </button>
           </div>
         </form>

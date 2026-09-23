@@ -69,9 +69,9 @@ export default function App() {
                 <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-4">
                   <Play className="w-8 h-8 fill-emerald-400" />
                 </div>
-                <h2 className="text-xl font-black text-white mb-2">Nenhuma Pelada Ativa</h2>
+                <h2 className="text-xl font-black text-white mb-2">Nenhuma Rodada Ativa</h2>
                 <p className="text-xs text-slate-400 mb-6 leading-relaxed">
-                  Para começar a registrar gols e assistências em tempo real, crie uma nova pelada colando a lista de participantes.
+                  Para começar a registrar gols e assistências em tempo real, crie uma nova rodada colando a lista de participantes.
                 </p>
 
                 {isAdmin ? (
@@ -80,11 +80,11 @@ export default function App() {
                     className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-white shadow-lg shadow-emerald-950/40 transition flex items-center justify-center gap-2"
                   >
                     <Plus className="w-4 h-4" />
-                    <span>Criar Nova Pelada</span>
+                    <span>Criar Nova Rodada</span>
                   </button>
                 ) : (
                   <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 text-xs text-slate-400">
-                    Aguarde o administrador iniciar a pelada do dia para liberar os lançamentos.
+                    Aguarde o administrador iniciar a rodada do dia para liberar os lançamentos.
                   </div>
                 )}
               </div>

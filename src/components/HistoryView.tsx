@@ -112,7 +112,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
           <div>
             <h2 className="text-lg font-black text-white tracking-tight flex items-center gap-2">
               <Calendar className="w-5 h-5 text-emerald-400" />
-              <span>Histórico de Peladas</span>
+              <span>Histórico de Rodadas</span>
             </h2>
             <p className="text-xs text-slate-400">
               Todas as partidas registradas, das mais recentes para as mais antigas
@@ -128,7 +128,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
       <div className="space-y-2.5">
         {sortedMatches.length === 0 ? (
           <div className="text-center py-12 bg-slate-900/60 rounded-2xl border border-slate-800 p-6">
-            <p className="text-sm text-slate-400">Nenhuma pelada registrada ainda.</p>
+            <p className="text-sm text-slate-400">Nenhuma rodada registrada ainda.</p>
           </div>
         ) : (
           sortedMatches.map((m) => {
@@ -277,7 +277,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                   <button
                     onClick={() => setShowDeleteConfirm(!showDeleteConfirm)}
                     className="p-1 rounded bg-rose-950/40 text-rose-400 hover:text-rose-300 hover:bg-rose-900/50 text-xs"
-                    title="Excluir Pelada"
+                    title="Excluir Rodada"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -331,7 +331,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
               <div className="p-3 bg-rose-950/60 rounded-xl border border-rose-800 mb-3 space-y-2 shrink-0">
                 <p className="text-xs text-rose-200 font-semibold flex items-center gap-1.5">
                   <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
-                  Tem certeza que deseja excluir esta pelada e todos os seus lançamentos?
+                  Tem certeza que deseja excluir esta rodada e todos os seus lançamentos?
                 </p>
                 <div className="flex justify-end gap-2">
                   <button
@@ -344,7 +344,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                     onClick={handleDeleteMatch}
                     className="px-3 py-1 text-xs font-bold bg-rose-600 text-white rounded-lg hover:bg-rose-500"
                   >
-                    Sim, Excluir Pelada
+                    Sim, Excluir Rodada
                   </button>
                 </div>
               </div>
@@ -438,7 +438,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                   }}
                   className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white transition"
                 >
-                  Abrir na Tela da Pelada (Lançar)
+                  Abrir na Tela da Rodada (Lançar)
                 </button>
               )}
               <button

@@ -101,7 +101,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenNewMatch, onNavigateToAdmi
 
             <h3 className="text-lg font-bold text-center text-white mb-1">Acesso do Administrador</h3>
             <p className="text-xs text-center text-slate-400 mb-5">
-              Digite o PIN de administrador para criar peladas, finalizar e fazer correções oficiais.
+              Digite o PIN de administrador para criar rodadas, finalizar e fazer correções oficiais.
             </p>
 
             <form onSubmit={handleLogin} className="space-y-4">
