@@ -12,6 +12,7 @@ import {
   Swords,
   ChevronRight,
   X,
+  Trophy,
 } from 'lucide-react';
 import { Match } from '../types/pelada';
 import { usePeladaStore } from '../hooks/usePeladaStore';
@@ -37,6 +38,7 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
   const [showCreateGameModal, setShowCreateGameModal] = useState(false);
+  const [activeSubTab, setActiveSubTab] = useState<'times' | 'partidas' | 'ranking'>('times');
   const [lastActionToast, setLastActionToast] = useState<{
     text: string;
     type: 'goal' | 'assist' | 'info';
@@ -98,6 +100,13 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
         .filter(item => item.assists > 0)
         .sort((a, b) => b.assists - a.assists || a.player.displayName.localeCompare(b.player.displayName)),
     [matchPlayersData]
+  );
+
+  // Classificação dos times (V/E/D) — atualiza sozinha conforme os placares
+  // das partidas mudam, igual ao ranking de gols/assistências.
+  const teamStandings = useMemo(
+    () => store.getTeamStandings(match.id),
+    [store, match.id, data]
   );
 
   const getRankBadgeClass = (index: number) => {
@@ -440,7 +449,30 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
         </>
       ) : (
         <>
-          {/* Times */}
+          {/* Sub-tabs: Times / Partidas / Ranking */}
+          <div className="flex items-center gap-1 p-1 bg-slate-900 border border-slate-800 rounded-2xl">
+            {([
+              { key: 'times', label: 'Times', Icon: Users },
+              { key: 'partidas', label: 'Partidas', Icon: Swords },
+              { key: 'ranking', label: 'Ranking', Icon: Trophy },
+            ] as const).map(({ key, label, Icon }) => (
+              <button
+                key={key}
+                onClick={() => setActiveSubTab(key)}
+                id={`subtab-${key}`}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition ${
+                  activeSubTab === key
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/40'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/70'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
+
+          {activeSubTab === 'times' && (
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-black uppercase tracking-wider text-slate-300 flex items-center gap-2">
@@ -491,8 +523,10 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
               </div>
             )}
           </div>
+          )}
 
-          {/* Partidas */}
+          {activeSubTab === 'partidas' && (
+          <>
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-black uppercase tracking-wider text-slate-300 flex items-center gap-2">
@@ -611,6 +645,59 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
               )}
             </div>
           </div>
+          </>
+          )}
+
+          {activeSubTab === 'ranking' && (
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
+            <div className="flex items-center gap-2 pb-2 border-b border-slate-800/80 mb-3">
+              <Trophy className="w-4 h-4 text-amber-400" />
+              <h3 className="text-xs font-black uppercase tracking-wider text-slate-200">
+                Classificação dos Times
+              </h3>
+            </div>
+
+            {teamStandings.length === 0 ? (
+              <p className="text-xs text-slate-500 italic py-4 text-center">Nenhum time criado ainda.</p>
+            ) : (
+              <div className="space-y-2">
+                {/* Column headers, hidden on very small screens */}
+                <div className="hidden sm:grid grid-cols-[1fr_repeat(6,auto)] gap-2 px-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  <span>Time</span>
+                  <span className="w-8 text-center">J</span>
+                  <span className="w-8 text-center">V</span>
+                  <span className="w-8 text-center">E</span>
+                  <span className="w-8 text-center">D</span>
+                  <span className="w-10 text-center">SG</span>
+                  <span className="w-10 text-center">Pts</span>
+                </div>
+                {teamStandings.map((row, i) => (
+                  <div
+                    key={row.team.id}
+                    className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <span className={`w-6 h-6 rounded-lg text-xs font-black flex items-center justify-center shrink-0 ${getRankBadgeClass(i)}`}>
+                        {i + 1}º
+                      </span>
+                      <span className="text-sm font-bold text-white truncate uppercase">{row.team.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2.5 sm:gap-3 shrink-0 text-xs font-mono">
+                      <span className="w-6 text-center text-slate-400" title="Jogos">{row.played}</span>
+                      <span className="w-6 text-center text-emerald-400 font-bold" title="Vitórias">{row.wins}</span>
+                      <span className="w-6 text-center text-slate-300" title="Empates">{row.draws}</span>
+                      <span className="w-6 text-center text-rose-400" title="Derrotas">{row.losses}</span>
+                      <span className="w-8 text-center text-slate-400 hidden sm:inline" title="Saldo de gols">
+                        {row.goalsFor - row.goalsAgainst > 0 ? '+' : ''}{row.goalsFor - row.goalsAgainst}
+                      </span>
+                      <span className="w-8 text-center text-amber-300 font-black" title="Pontos">{row.points}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          )}
         </>
       )}
 

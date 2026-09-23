@@ -848,6 +848,58 @@ class PeladaStore {
       .sort((a, b) => b.game.createdAt.localeCompare(a.game.createdAt));
   }
 
+  // Classificação dos times da rodada (V/E/D), a partir do placar atual de
+  // cada partida — não há "partida finalizada", então todo confronto já
+  // criado conta pro retrospecto ao vivo.
+  public getTeamStandings(matchId: string): Array<{
+    team: Team;
+    played: number;
+    wins: number;
+    draws: number;
+    losses: number;
+    goalsFor: number;
+    goalsAgainst: number;
+    points: number;
+  }> {
+    const teams = this.getTeamsForMatch(matchId);
+    const table = new Map(
+      teams.map(team => [
+        team.id,
+        { team, played: 0, wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0, points: 0 },
+      ])
+    );
+
+    this.getGamesForMatch(matchId).forEach(({ game, teamAGoals, teamBGoals }) => {
+      const a = table.get(game.teamAId);
+      const b = table.get(game.teamBId);
+      if (!a || !b) return;
+
+      a.played++; b.played++;
+      a.goalsFor += teamAGoals; a.goalsAgainst += teamBGoals;
+      b.goalsFor += teamBGoals; b.goalsAgainst += teamAGoals;
+
+      if (teamAGoals > teamBGoals) {
+        a.wins++; a.points += 3;
+        b.losses++;
+      } else if (teamAGoals < teamBGoals) {
+        b.wins++; b.points += 3;
+        a.losses++;
+      } else {
+        a.draws++; a.points += 1;
+        b.draws++; b.points += 1;
+      }
+    });
+
+    return Array.from(table.values()).sort((x, y) => {
+      if (y.points !== x.points) return y.points - x.points;
+      const sgX = x.goalsFor - x.goalsAgainst;
+      const sgY = y.goalsFor - y.goalsAgainst;
+      if (sgY !== sgX) return sgY - sgX;
+      if (y.goalsFor !== x.goalsFor) return y.goalsFor - x.goalsFor;
+      return x.team.name.localeCompare(y.team.name);
+    });
+  }
+
   // Cria uma partida (dois times da mesma rodada). Sem ciclo próprio de
   // iniciar/finalizar: já aceita lançamentos assim que criada, contanto que
   // a rodada esteja EM ANDAMENTO (regra conferida no banco).
