@@ -10,14 +10,13 @@ import {
 } from 'lucide-react';
 import { StatEventType } from '../types/pelada';
 import { usePeladaStore } from '../hooks/usePeladaStore';
-import { getEffectiveLogoUrl, DEFAULT_PELADA_LOGO } from '../assets/logo';
 
 interface RankingsViewProps {
   onSelectPlayer: (playerId: string) => void;
 }
 
 export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) => {
-  const { data, matches, store, settings } = usePeladaStore();
+  const { data, matches, store } = usePeladaStore();
 
   // Active ranking type: 'GOAL' or 'ASSIST'
   const [rankingType, setRankingType] = useState<StatEventType>('GOAL');
@@ -83,32 +82,13 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
 
   return (
     <div className="space-y-4 pb-20">
-      {/* Rankings Header with Pelada Logo (Section 22 requirement) */}
+      {/* Rankings Header */}
       <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/40 border border-slate-800 rounded-2xl p-4 shadow-xl">
         <div className="flex items-center justify-between gap-3 mb-3">
-          <div className="flex items-center gap-2.5">
-            <img
-              src={getEffectiveLogoUrl(settings.logoUrl)}
-              alt="Logo"
-              referrerPolicy="no-referrer"
-              className="w-10 h-10 rounded-xl object-contain drop-shadow"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                if (target.src !== DEFAULT_PELADA_LOGO) {
-                  target.src = DEFAULT_PELADA_LOGO;
-                }
-              }}
-            />
-            <div>
-              <h2 className="text-lg font-black text-white tracking-tight flex items-center gap-1.5">
-                <Trophy className="w-5 h-5 text-amber-400" />
-                <span>Rankings Oficiais</span>
-              </h2>
-              <p className="text-xs text-slate-400">
-                Calculados exclusivamente a partir das rodadas finalizadas
-              </p>
-            </div>
-          </div>
+          <h2 className="text-lg font-black text-white tracking-tight flex items-center gap-1.5">
+            <Trophy className="w-5 h-5 text-amber-400" />
+            <span>Rankings Oficiais</span>
+          </h2>
         </div>
 
         {/* Independent Ranking Tabs: Gols vs Assistências (Section 11 & 12) */}
