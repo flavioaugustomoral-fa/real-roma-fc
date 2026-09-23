@@ -1659,6 +1659,24 @@ class PeladaStore {
     // Sort history by date descending
     history.sort((a, b) => b.date.localeCompare(a.date));
 
+    // Vezes eleito MVP da rodada, e vezes que o time dele terminou em 1º na
+    // Classificação dos Times daquela rodada (só conta rodadas modo novo —
+    // com Times — que tiveram ao menos 1 partida jogada; sem partida
+    // nenhuma o 1º lugar seria só um desempate alfabético arbitrário).
+    let mvpCount = 0;
+    let championTeamCount = 0;
+    finalizedMatches.forEach(match => {
+      if (match.mvpPlayerId === playerId) mvpCount++;
+
+      const mp = this.data.matchPlayers.find(m => m.matchId === match.id && m.playerId === playerId);
+      if (mp?.teamId && this.getGamesForMatch(match.id).length > 0) {
+        const standings = this.getTeamStandings(match.id);
+        if (standings[0]?.team.id === mp.teamId) {
+          championTeamCount++;
+        }
+      }
+    });
+
     return {
       player,
       goals,
@@ -1666,6 +1684,8 @@ class PeladaStore {
       matchesPlayed,
       goalsPerMatch: matchesPlayed > 0 ? Number((goals / matchesPlayed).toFixed(2)) : 0,
       assistsPerMatch: matchesPlayed > 0 ? Number((assists / matchesPlayed).toFixed(2)) : 0,
+      mvpCount,
+      championTeamCount,
       history,
     };
   }

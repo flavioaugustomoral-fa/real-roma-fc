@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { X, Calendar, Activity, Pencil, Check, AlertTriangle } from 'lucide-react';
+import { X, Calendar, Activity, Pencil, Check, AlertTriangle, Trophy } from 'lucide-react';
 import { usePeladaStore } from '../hooks/usePeladaStore';
+import { LaurelWreathIcon } from './icons/LaurelWreathIcon';
 
 interface PlayerModalProps {
   playerId: string | null;
@@ -185,6 +186,35 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({ playerId, onClose }) =
               {summary.assistsPerMatch.toFixed(2)}
             </span>
             <span className="block text-[10px] text-slate-400 mt-0.5">por rodada disputada</span>
+          </div>
+        </div>
+
+        {/* MVP & Team Champion Honors */}
+        <div className="grid grid-cols-2 gap-2.5 mb-5 text-center">
+          <div className="bg-amber-950/30 p-3 rounded-xl border border-amber-800/50">
+            <span className="text-[11px] font-bold text-amber-300 uppercase tracking-wider flex items-center justify-center gap-1">
+              <LaurelWreathIcon className="w-3.5 h-3.5 text-amber-400" />
+              <span>MVP da Rodada</span>
+            </span>
+            <span className="block text-xl font-black text-amber-400 mt-0.5">
+              {summary.mvpCount}
+            </span>
+            <span className="block text-[10px] text-slate-400 mt-0.5">
+              {summary.mvpCount === 1 ? 'vez eleito' : 'vezes eleito'}
+            </span>
+          </div>
+
+          <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80">
+            <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center justify-center gap-1">
+              <Trophy className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Time da Rodada</span>
+            </span>
+            <span className="block text-xl font-black text-emerald-400 mt-0.5">
+              {summary.championTeamCount}
+            </span>
+            <span className="block text-[10px] text-slate-400 mt-0.5">
+              {summary.championTeamCount === 1 ? 'vez no time campeão' : 'vezes no time campeão'}
+            </span>
           </div>
         </div>
 

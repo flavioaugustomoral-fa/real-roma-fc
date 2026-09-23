@@ -94,6 +94,8 @@ export interface PlayerStatSummary {
   matchesPlayed: number;
   goalsPerMatch: number;
   assistsPerMatch: number;
+  mvpCount: number;
+  championTeamCount: number;
   history: Array<{
     matchId: string;
     date: string;
