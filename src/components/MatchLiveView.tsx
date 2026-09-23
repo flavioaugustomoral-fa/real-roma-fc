@@ -19,8 +19,15 @@ import { Match } from '../types/pelada';
 import { usePeladaStore } from '../hooks/usePeladaStore';
 import { LaurelWreathIcon } from './icons/LaurelWreathIcon';
 
+type MatchSubTab = 'times' | 'partidas' | 'ranking';
+
 interface MatchLiveViewProps {
   match: Match;
+  // Controlado pelo App: precisa sobreviver à troca pra GameLiveView e volta
+  // (que desmonta este componente) sem resetar pra "Times". Se não vier
+  // controlado, cai num estado local próprio (uso standalone).
+  activeSubTab?: MatchSubTab;
+  onChangeSubTab?: (tab: MatchSubTab) => void;
   onOpenCreateMatch?: () => void;
   onViewPlayerStats?: (playerId: string) => void;
   onMatchDeleted?: () => void;
@@ -29,6 +36,8 @@ interface MatchLiveViewProps {
 
 export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
   match,
+  activeSubTab: activeSubTabProp,
+  onChangeSubTab,
   onOpenCreateMatch,
   onViewPlayerStats,
   onMatchDeleted,
@@ -41,7 +50,9 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
   const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
   const [showCreateGameModal, setShowCreateGameModal] = useState(false);
-  const [activeSubTab, setActiveSubTab] = useState<'times' | 'partidas' | 'ranking'>('times');
+  const [internalSubTab, setInternalSubTab] = useState<MatchSubTab>('times');
+  const activeSubTab = activeSubTabProp ?? internalSubTab;
+  const setActiveSubTab = onChangeSubTab ?? setInternalSubTab;
   const [mvpPlayerId, setMvpPlayerId] = useState('');
   const [mvpError, setMvpError] = useState(false);
   const [lastActionToast, setLastActionToast] = useState<{

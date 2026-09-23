@@ -23,6 +23,11 @@ export default function App() {
   const [matchForLiveView, setMatchForLiveView] = useState<Match | null>(null);
   // Partida aberta dentro da rodada (tela de 2 colunas com Registrar)
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
+  // Aba ativa da tela da Rodada (Times/Partidas/Ranking) — fica aqui, e não
+  // dentro do MatchLiveView, porque abrir uma Partida troca pra GameLiveView
+  // e desmonta o MatchLiveView; se o estado fosse local ele resetaria pra
+  // "Times" toda vez que o usuário voltasse da Partida.
+  const [matchSubTab, setMatchSubTab] = useState<'times' | 'partidas' | 'ranking'>('times');
 
   // Determine which match to display on the "Rodada" tab. Once a match is
   // finalized it's no longer IN_PROGRESS/DRAFT, so activeMatch stops
@@ -33,12 +38,14 @@ export default function App() {
   const handleMatchCreatedSuccess = (matchId: string) => {
     setIsCreateMatchOpen(false);
     setSelectedGameId(null);
+    setMatchSubTab('times');
     setCurrentTab('match');
   };
 
   const handleSelectMatchToPlay = (match: Match) => {
     setMatchForLiveView(match);
     setSelectedGameId(null);
+    setMatchSubTab('times');
     setCurrentTab('match');
   };
 
@@ -70,12 +77,15 @@ export default function App() {
               ) : (
                 <MatchLiveView
                   match={currentMatchToDisplay}
+                  activeSubTab={matchSubTab}
+                  onChangeSubTab={setMatchSubTab}
                   onOpenCreateMatch={() => setIsCreateMatchOpen(true)}
                   onViewPlayerStats={(id) => setSelectedPlayerId(id)}
                   onOpenGame={(gameId) => setSelectedGameId(gameId)}
                   onMatchDeleted={() => {
                     setMatchForLiveView(null);
                     setSelectedGameId(null);
+                    setMatchSubTab('times');
                     setCurrentTab('home');
                   }}
                 />
