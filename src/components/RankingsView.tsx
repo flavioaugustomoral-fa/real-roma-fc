@@ -49,7 +49,7 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
 
   const getRankBadgeClass = (index: number) => {
     if (index === 0) return 'bg-amber-400/20 text-amber-300 border border-amber-400/40';
-    if (index === 1) return 'bg-slate-300/20 text-slate-200 border border-slate-300/30';
+    if (index === 1) return 'bg-slate-300/30 text-slate-100 border border-slate-300/40';
     if (index === 2) return 'bg-amber-700/20 text-amber-400 border border-amber-700/30';
     return 'bg-slate-800 text-slate-400';
   };
