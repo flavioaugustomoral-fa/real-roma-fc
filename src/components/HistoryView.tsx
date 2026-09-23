@@ -5,13 +5,15 @@ import {
   CheckCircle,
   Users,
   ChevronRight,
+  ChevronLeft,
   ShieldCheck,
   Edit,
   Trash2,
   X,
   Plus,
   Minus,
-  AlertTriangle
+  AlertTriangle,
+  CalendarClock,
 } from 'lucide-react';
 import { Match, StatEventType } from '../types/pelada';
 import { usePeladaStore } from '../hooks/usePeladaStore';
@@ -22,12 +24,18 @@ interface HistoryViewProps {
   onViewPlayerStats?: (playerId: string) => void;
 }
 
+// Sentinel pra agrupar rodadas cuja data não cai em nenhuma temporada
+// cadastrada (não deveria acontecer no fluxo normal, mas evita que a rodada
+// simplesmente suma do Histórico se acontecer).
+const ORPHAN_SEASON_ID = '__sem_temporada__';
+
 export const HistoryView: React.FC<HistoryViewProps> = ({
   onSelectMatchToPlay,
   onViewPlayerStats,
 }) => {
   const { data, matches, store, isAdmin } = usePeladaStore();
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
+  const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [editDate, setEditDate] = useState('');
   const [editTime, setEditTime] = useState('');
@@ -38,6 +46,34 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
   const sortedMatches = useMemo(() => {
     return [...matches].sort((a, b) => b.date.localeCompare(a.date));
   }, [matches]);
+
+  const seasons = useMemo(() => store.getSeasons(), [store, data]);
+
+  const matchesInSeason = (season: { startDate: string; endDate: string | null }) =>
+    sortedMatches.filter(m => m.date >= season.startDate && (season.endDate === null || m.date <= season.endDate));
+
+  const orphanMatches = useMemo(
+    () => sortedMatches.filter(m => !seasons.some(s => m.date >= s.startDate && (s.endDate === null || m.date <= s.endDate))),
+    [sortedMatches, seasons]
+  );
+
+  const seasonSummaries = useMemo(
+    () => seasons.map(season => ({ season, count: matchesInSeason(season).length })),
+    [seasons, sortedMatches]
+  );
+
+  const selectedSeason = useMemo(
+    () => (selectedSeasonId && selectedSeasonId !== ORPHAN_SEASON_ID ? seasons.find(s => s.id === selectedSeasonId) : undefined),
+    [seasons, selectedSeasonId]
+  );
+
+  const isOrphanView = selectedSeasonId === ORPHAN_SEASON_ID;
+
+  const matchesToShow = useMemo(() => {
+    if (isOrphanView) return orphanMatches;
+    if (selectedSeason) return matchesInSeason(selectedSeason);
+    return [];
+  }, [isOrphanView, orphanMatches, selectedSeason, sortedMatches]);
 
   const selectedMatch = useMemo(() => {
     if (!selectedMatchId) return null;
@@ -114,30 +150,123 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
     <div className="space-y-4 pb-20">
       {/* Header */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-black text-white tracking-tight flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-emerald-400" />
-              <span>Histórico de Rodadas</span>
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            {(selectedSeason || isOrphanView) ? (
+              <button
+                onClick={() => setSelectedSeasonId(null)}
+                className="flex items-center gap-1.5 text-xs font-bold text-emerald-400 hover:text-emerald-300 transition mb-1.5"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                <span>Voltar às Temporadas</span>
+              </button>
+            ) : null}
+            <h2 className="text-lg font-black text-white tracking-tight flex items-center gap-2 truncate">
+              <Calendar className="w-5 h-5 text-emerald-400 shrink-0" />
+              <span className="truncate">
+                {selectedSeason ? selectedSeason.label : isOrphanView ? 'Sem Temporada' : 'Histórico de Rodadas'}
+              </span>
             </h2>
             <p className="text-xs text-slate-400">
-              Todas as partidas registradas, das mais recentes para as mais antigas
+              {selectedSeason || isOrphanView
+                ? 'Rodadas desta temporada, das mais recentes para as mais antigas'
+                : 'Escolha uma temporada para ver as rodadas dela'}
             </p>
           </div>
-          <span className="text-xs font-mono font-bold bg-slate-800 px-2.5 py-1 rounded-lg text-slate-300">
-            {matches.length} {matches.length === 1 ? 'partida' : 'partidas'}
+          <span className="text-xs font-mono font-bold bg-slate-800 px-2.5 py-1 rounded-lg text-slate-300 shrink-0">
+            {selectedSeason || isOrphanView
+              ? `${matchesToShow.length} ${matchesToShow.length === 1 ? 'rodada' : 'rodadas'}`
+              : `${matches.length} ${matches.length === 1 ? 'partida' : 'partidas'}`}
           </span>
         </div>
       </div>
 
-      {/* Matches List */}
+      {/* Seasons List (nível superior) */}
+      {!selectedSeason && !isOrphanView && (
+        <div className="space-y-2.5">
+          {seasonSummaries.length === 0 && orphanMatches.length === 0 ? (
+            <div className="text-center py-12 bg-slate-900/60 rounded-2xl border border-slate-800 p-6">
+              <p className="text-sm text-slate-400">Nenhuma temporada registrada ainda.</p>
+            </div>
+          ) : (
+            <>
+              {seasonSummaries.map(({ season, count }) => (
+                <div
+                  key={season.id}
+                  onClick={() => setSelectedSeasonId(season.id)}
+                  id={`season-history-card-${season.id}`}
+                  className="w-full bg-slate-900 border border-slate-800 hover:border-slate-700 active:bg-slate-800/80 rounded-2xl p-4 shadow-md transition text-left cursor-pointer group"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
+                        <CalendarClock className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm sm:text-base font-black text-white group-hover:text-emerald-400 transition truncate">
+                            {season.label}
+                          </span>
+                          {season.endDate === null && (
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shrink-0">
+                              Atual
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs text-slate-500 font-mono">
+                          {season.startDate.split('-').reverse().join('/')}
+                          {season.endDate ? ` – ${season.endDate.split('-').reverse().join('/')}` : ' – hoje'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs font-mono font-bold bg-slate-800 px-2.5 py-1 rounded-lg text-slate-300">
+                        {count} {count === 1 ? 'rodada' : 'rodadas'}
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-white transition" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {orphanMatches.length > 0 && (
+                <div
+                  onClick={() => setSelectedSeasonId(ORPHAN_SEASON_ID)}
+                  id="season-history-card-orphan"
+                  className="w-full bg-slate-900 border border-slate-800 hover:border-slate-700 active:bg-slate-800/80 rounded-2xl p-4 shadow-md transition text-left cursor-pointer group"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 flex items-center justify-center shrink-0">
+                        <CalendarClock className="w-5 h-5" />
+                      </div>
+                      <span className="text-sm sm:text-base font-black text-white group-hover:text-emerald-400 transition truncate">
+                        Sem Temporada
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs font-mono font-bold bg-slate-800 px-2.5 py-1 rounded-lg text-slate-300">
+                        {orphanMatches.length} {orphanMatches.length === 1 ? 'rodada' : 'rodadas'}
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-white transition" />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Matches List (dentro de uma temporada) */}
+      {(selectedSeason || isOrphanView) && (
       <div className="space-y-2.5">
-        {sortedMatches.length === 0 ? (
+        {matchesToShow.length === 0 ? (
           <div className="text-center py-12 bg-slate-900/60 rounded-2xl border border-slate-800 p-6">
-            <p className="text-sm text-slate-400">Nenhuma rodada registrada ainda.</p>
+            <p className="text-sm text-slate-400">Nenhuma rodada registrada nesta temporada.</p>
           </div>
         ) : (
-          sortedMatches.map((m) => {
+          matchesToShow.map((m) => {
             const isFinalized = m.status === 'FINALIZED';
             const isInProgress = m.status === 'IN_PROGRESS';
             const mStats = store.getMatchPlayers(m.id);
@@ -211,6 +340,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
           })
         )}
       </div>
+      )}
 
       {/* Match Details & Admin Correction Modal - Section 10 & 16 */}
       {selectedMatch && (
