@@ -21,6 +21,7 @@ DROP TABLE IF EXISTS public.audit_logs CASCADE;
 DROP TABLE IF EXISTS public.matches CASCADE;
 DROP TABLE IF EXISTS public.players CASCADE;
 DROP TABLE IF EXISTS public.pelada_settings CASCADE;
+DROP TABLE IF EXISTS public.seasons CASCADE;
 DROP TYPE IF EXISTS match_status_enum CASCADE;
 DROP TYPE IF EXISTS stat_event_type_enum CASCADE;
 DROP FUNCTION IF EXISTS check_admin_pin(TEXT);
@@ -44,6 +45,8 @@ DROP FUNCTION IF EXISTS admin_delete_game(TEXT, TEXT);
 DROP FUNCTION IF EXISTS admin_insert_audit_log(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ);
 DROP FUNCTION IF EXISTS admin_upsert_settings(TEXT, TEXT, TEXT, TEXT, TEXT);
 DROP FUNCTION IF EXISTS admin_wipe_all(TEXT);
+DROP FUNCTION IF EXISTS admin_create_season(TEXT, TEXT, TEXT, DATE, TIMESTAMPTZ);
+DROP FUNCTION IF EXISTS admin_finalize_season(TEXT, DATE, TEXT, DATE, TEXT);
 
 -- 1. Habilitar extensão necessária para normalização de texto
 CREATE EXTENSION IF NOT EXISTS "unaccent";
@@ -163,6 +166,21 @@ CREATE TABLE IF NOT EXISTS public.pelada_settings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- 10. Tabela: seasons (temporada sem prazo fixo — o Admin finaliza quando
+-- quiser; end_date NULL identifica a temporada aberta/atual). Uma rodada
+-- pertence à temporada cujo intervalo [start_date, end_date] contém sua data.
+CREATE TABLE IF NOT EXISTS public.seasons (
+  id TEXT PRIMARY KEY,
+  label TEXT NOT NULL,
+  start_date DATE NOT NULL,
+  end_date DATE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Garante no máximo 1 temporada aberta (end_date NULL) por vez.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_seasons_single_open
+  ON public.seasons ((end_date IS NULL)) WHERE end_date IS NULL;
+
 -- ==============================================================================
 -- FUNÇÃO DE NORMALIZAÇÃO AUTOMÁTICA DE NOMES
 -- ==============================================================================
@@ -189,6 +207,7 @@ ALTER TABLE public.games ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.stat_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pelada_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.seasons ENABLE ROW LEVEL SECURITY;
 
 -- Remove policies antigas (versões anteriores deste script liberavam escrita
 -- pública direta nessas tabelas; isso não existe mais).
@@ -225,6 +244,9 @@ CREATE POLICY "Leitura publica teams" ON public.teams FOR SELECT USING (true);
 
 DROP POLICY IF EXISTS "Leitura publica games" ON public.games;
 CREATE POLICY "Leitura publica games" ON public.games FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Leitura publica seasons" ON public.seasons;
+CREATE POLICY "Leitura publica seasons" ON public.seasons FOR SELECT USING (true);
 
 -- stat_events: nenhuma escrita pública. Lançar gol/assistência exige o PIN
 -- de Admin e passa por admin_add_stat_event() (só funciona com a pelada EM
@@ -420,6 +442,32 @@ BEGIN
 END;
 $$;
 
+-- Semeia a primeira temporada (só usado na semeadura inicial de um projeto
+-- Supabase vazio). Trocas de temporada depois disso passam por
+-- admin_finalize_season, que fecha a atual e abre a próxima numa transação só.
+CREATE OR REPLACE FUNCTION admin_create_season(p_pin TEXT, p_id TEXT, p_label TEXT, p_start_date DATE, p_created_at TIMESTAMPTZ)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  PERFORM check_admin_pin(p_pin);
+  INSERT INTO public.seasons (id, label, start_date, end_date, created_at)
+  VALUES (p_id, p_label, p_start_date, NULL, COALESCE(p_created_at, NOW()))
+  ON CONFLICT (id) DO UPDATE SET label = EXCLUDED.label, start_date = EXCLUDED.start_date;
+END;
+$$;
+
+-- Fecha a temporada aberta (end_date = p_end_date) e já cria a próxima,
+-- aberta (end_date NULL), em uma única chamada — sem prazo fixo, o Admin
+-- decide quando finalizar.
+CREATE OR REPLACE FUNCTION admin_finalize_season(p_pin TEXT, p_end_date DATE, p_new_id TEXT, p_new_start_date DATE, p_new_label TEXT)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  PERFORM check_admin_pin(p_pin);
+  UPDATE public.seasons SET end_date = p_end_date WHERE end_date IS NULL;
+  INSERT INTO public.seasons (id, label, start_date, end_date, created_at)
+  VALUES (p_new_id, p_new_label, p_new_start_date, NULL, NOW());
+END;
+$$;
+
 -- Cria uma partida (confronto entre 2 times da MESMA rodada).
 CREATE OR REPLACE FUNCTION admin_create_game(
   p_pin TEXT, p_id TEXT, p_match_id TEXT, p_team_a_id TEXT, p_team_b_id TEXT, p_created_at TIMESTAMPTZ
@@ -565,6 +613,7 @@ BEGIN
   DELETE FROM public.audit_logs WHERE true;
   DELETE FROM public.matches WHERE true;
   DELETE FROM public.players WHERE true;
+  DELETE FROM public.seasons WHERE true;
 END;
 $$;
 
@@ -585,6 +634,8 @@ GRANT EXECUTE ON FUNCTION admin_insert_stat_event(TEXT, TEXT, TEXT, TEXT, stat_e
 GRANT EXECUTE ON FUNCTION admin_insert_audit_log(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_upsert_settings(TEXT, TEXT, TEXT, TEXT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_wipe_all(TEXT) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION admin_create_season(TEXT, TEXT, TEXT, DATE, TIMESTAMPTZ) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION admin_finalize_season(TEXT, DATE, TEXT, DATE, TEXT) TO anon, authenticated;
 
 -- ==============================================================================
 -- REALTIME: garante que INSERT/UPDATE/DELETE sejam transmitidos aos clientes
@@ -609,6 +660,9 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE public.pelada_settings;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.seasons;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- ==============================================================================

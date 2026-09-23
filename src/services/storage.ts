@@ -7,6 +7,7 @@ import {
   Player,
   PlayerStatSummary,
   RankingItem,
+  Season,
   StatEvent,
   StatEventType,
   Team,
@@ -35,6 +36,8 @@ import {
   setTeamRoster,
   pushGame,
   deleteRemoteGame,
+  pushSeason,
+  finalizeSeasonRemote,
 } from './supabase';
 
 const STORAGE_KEY = 'gestao_pelada_data_v1';
@@ -64,6 +67,7 @@ export interface StorageData {
   games: Game[];
   statEvents: StatEvent[];
   auditLogs: AuditLog[];
+  seasons: Season[];
   settings: PeladaSettings;
 }
 
@@ -260,6 +264,17 @@ function getInitialSeedData(): StorageData {
     });
   });
 
+  const firstMatchDate = matchSeeds.length > 0 ? matchSeeds[0].date : new Date().toISOString().slice(0, 10);
+  const seasons: Season[] = [
+    {
+      id: 'season_1',
+      label: 'Temporada 1',
+      startDate: firstMatchDate,
+      endDate: null,
+      createdAt: `${firstMatchDate}T00:00:00Z`,
+    },
+  ];
+
   return {
     players,
     matches,
@@ -268,6 +283,7 @@ function getInitialSeedData(): StorageData {
     games: [],
     statEvents,
     auditLogs,
+    seasons,
     settings: {
       peladaName: 'Pelada do Real Roma F.C.',
       logoUrl: DEFAULT_PELADA_LOGO,
@@ -314,6 +330,7 @@ class PeladaStore {
           games: remote.games,
           statEvents: remote.statEvents,
           auditLogs: remote.auditLogs,
+          seasons: remote.seasons,
           settings: { ...this.data.settings, ...(remote.settings || {}) },
         };
         this.applyingRemote = false;
@@ -343,6 +360,7 @@ class PeladaStore {
       games: remote.games,
       statEvents: remote.statEvents,
       auditLogs: remote.auditLogs,
+      seasons: remote.seasons,
       settings: { ...this.data.settings, ...(remote.settings || {}) },
     };
     this.applyingRemote = false;
@@ -380,6 +398,25 @@ class PeladaStore {
           }
           if (!Array.isArray(parsed.games)) {
             parsed.games = [];
+            updated = true;
+          }
+          // Dados salvos antes das Temporadas existirem não têm esse array —
+          // preenche com uma temporada aberta cobrindo tudo que já existe.
+          if (!Array.isArray(parsed.seasons) || parsed.seasons.length === 0) {
+            const earliestMatchDate = (parsed.matches as Match[])
+              .map((m: Match) => m.date)
+              .filter(Boolean)
+              .sort()[0];
+            const startDate = earliestMatchDate || new Date().toISOString().slice(0, 10);
+            parsed.seasons = [
+              {
+                id: generateId('season'),
+                label: 'Temporada 1',
+                startDate,
+                endDate: null,
+                createdAt: new Date().toISOString(),
+              },
+            ];
             updated = true;
           }
           if (updated) {
@@ -1260,6 +1297,64 @@ class PeladaStore {
   }
 
   // -------------------------------------------------------------
+  // TEMPORADAS (período sem prazo fixo — o Admin decide quando finalizar)
+  // -------------------------------------------------------------
+
+  public getSeasons(): Season[] {
+    return [...this.data.seasons].sort((a, b) => b.startDate.localeCompare(a.startDate));
+  }
+
+  public getCurrentSeason(): Season | undefined {
+    return this.data.seasons.find(s => s.endDate === null);
+  }
+
+  // Fecha a temporada aberta atual (endDate = hoje) e já abre a próxima
+  // (mesmo nome sugerido "Temporada N+1", editável pelo Admin), começando no
+  // dia seguinte — sem lacuna nem sobreposição entre as duas.
+  public finalizeSeason(newLabel?: string, performedBy = 'Administrador'): { success: boolean; error?: string } {
+    const current = this.getCurrentSeason();
+    if (!current) {
+      return { success: false, error: 'Não há temporada aberta para finalizar.' };
+    }
+
+    const today = new Date();
+    const endDate = today.toISOString().slice(0, 10);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const newStartDate = tomorrow.toISOString().slice(0, 10);
+
+    const newSeason: Season = {
+      id: generateId('season'),
+      label: (newLabel || '').trim() || `Temporada ${this.data.seasons.length + 1}`,
+      startDate: newStartDate,
+      endDate: null,
+      createdAt: new Date().toISOString(),
+    };
+
+    current.endDate = endDate;
+    this.data.seasons.push(newSeason);
+
+    const auditEntry: AuditLog = {
+      id: generateId('aud'),
+      matchId: null,
+      action: 'SEASON_FINALIZED',
+      details: `Temporada "${current.label}" finalizada em ${endDate.split('-').reverse().join('/')}. Nova temporada "${newSeason.label}" iniciada.`,
+      performedBy,
+      createdAt: new Date().toISOString(),
+    };
+    this.data.auditLogs.unshift(auditEntry);
+
+    this.persist(this.data);
+    const pin = this.getSessionPin();
+    finalizeSeasonRemote(pin, endDate, newSeason.id, newStartDate, newSeason.label).then(ok => {
+      if (!ok) console.error('Não foi possível finalizar a temporada: PIN de admin desatualizado ou erro no Supabase.');
+    });
+    pushAuditLog(auditEntry, pin);
+
+    return { success: true };
+  }
+
+  // -------------------------------------------------------------
   // RANKINGS & STATS (STRICTLY FINALIZED MATCHES ONLY)
   // -------------------------------------------------------------
 
@@ -1269,18 +1364,29 @@ class PeladaStore {
     month?: number; // 1-12
     year?: number;
     matchId?: string;
+    seasonId?: string;
   }): { items: RankingItem[]; totalCount: number; scopeLabel: string } {
     // 1. Filter ONLY FINALIZED matches
     let finalizedMatches = this.data.matches.filter(m => m.status === 'FINALIZED');
 
     let scopeLabel = 'Temporada';
 
-    if (params.scope === 'SEASON' && params.year) {
-      finalizedMatches = finalizedMatches.filter(m => {
-        const d = new Date(m.date);
-        return d.getFullYear() === params.year;
-      });
-      scopeLabel = `Temporada ${params.year}`;
+    if (params.scope === 'SEASON') {
+      const season = params.seasonId
+        ? this.data.seasons.find(s => s.id === params.seasonId)
+        : this.getCurrentSeason();
+      if (season) {
+        // m.date e season.startDate/endDate são strings 'YYYY-MM-DD', que
+        // comparam corretamente como texto (ordem lexicográfica = ordem
+        // cronológica), sem os fusos-horários de new Date().
+        finalizedMatches = finalizedMatches.filter(m =>
+          m.date >= season.startDate && (season.endDate === null || m.date <= season.endDate)
+        );
+        scopeLabel = season.label;
+      } else {
+        finalizedMatches = [];
+        scopeLabel = 'Nenhuma temporada iniciada ainda.';
+      }
     } else if (params.scope === 'MONTH' && params.month && params.year) {
       const monthNames = [
         'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -1465,8 +1571,16 @@ class PeladaStore {
   }
 
   // Apaga jogadores/peladas/lançamentos/logs de verdade, sem recriar dados de
-  // exemplo (mantém nome do grupo/logo/PIN). Uso: começar a temporada real.
+  // exemplo (mantém nome do grupo/logo/PIN). Uso: começar a temporada real —
+  // por isso também reabre uma Temporada 1 zerada, começando hoje.
   public wipeAllData(): void {
+    const freshSeason: Season = {
+      id: generateId('season'),
+      label: 'Temporada 1',
+      startDate: new Date().toISOString().slice(0, 10),
+      endDate: null,
+      createdAt: new Date().toISOString(),
+    };
     const empty: StorageData = {
       players: [],
       matches: [],
@@ -1475,11 +1589,13 @@ class PeladaStore {
       games: [],
       statEvents: [],
       auditLogs: [],
+      seasons: [freshSeason],
       settings: this.data.settings,
     };
     this.data = empty;
     this.persist(empty);
-    wipeRemoteData(this.getSessionPin());
+    const pin = this.getSessionPin();
+    wipeRemoteData(pin).then(() => pushSeason(freshSeason, pin));
   }
 }
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Shield,
   KeyRound,
@@ -8,6 +8,7 @@ import {
   AlertCircle,
   Palette,
   Upload,
+  CalendarClock,
 } from 'lucide-react';
 import { usePeladaStore } from '../hooks/usePeladaStore';
 import { getEffectiveLogoUrl, DEFAULT_PELADA_LOGO } from '../assets/logo';
@@ -17,7 +18,26 @@ interface AdminViewProps {
 }
 
 export const AdminView: React.FC<AdminViewProps> = ({ onOpenCreateMatch }) => {
-  const { store, settings, isAdmin, loginAdmin, logoutAdmin } = usePeladaStore();
+  const { data, store, settings, isAdmin, loginAdmin, logoutAdmin } = usePeladaStore();
+
+  const currentSeason = useMemo(() => store.getCurrentSeason(), [store, data]);
+  const seasonMatchCount = useMemo(() => {
+    if (!currentSeason) return 0;
+    return data.matches.filter(m =>
+      m.status === 'FINALIZED' &&
+      m.date >= currentSeason.startDate &&
+      (currentSeason.endDate === null || m.date <= currentSeason.endDate)
+    ).length;
+  }, [data.matches, currentSeason]);
+
+  const [showFinalizeSeason, setShowFinalizeSeason] = useState(false);
+  const [nextSeasonLabel, setNextSeasonLabel] = useState('');
+
+  const handleFinalizeSeason = () => {
+    store.finalizeSeason(nextSeasonLabel);
+    setNextSeasonLabel('');
+    setShowFinalizeSeason(false);
+  };
 
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
@@ -265,6 +285,67 @@ export const AdminView: React.FC<AdminViewProps> = ({ onOpenCreateMatch }) => {
             </button>
           </div>
         </form>
+      </div>
+
+      {/* Temporada Card */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl">
+        <h3 className="text-sm font-black uppercase tracking-wider text-slate-300 mb-3 flex items-center gap-2">
+          <CalendarClock className="w-4 h-4 text-emerald-400" />
+          <span>Temporada</span>
+        </h3>
+
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <span className="text-sm font-bold text-white block truncate">
+              {currentSeason?.label || 'Nenhuma temporada aberta'}
+            </span>
+            {currentSeason && (
+              <p className="text-[11px] text-slate-500">
+                Iniciada em {currentSeason.startDate.split('-').reverse().join('/')} · {seasonMatchCount} {seasonMatchCount === 1 ? 'rodada finalizada' : 'rodadas finalizadas'}
+              </p>
+            )}
+          </div>
+          {!showFinalizeSeason && currentSeason && (
+            <button
+              onClick={() => setShowFinalizeSeason(true)}
+              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 shrink-0 transition"
+            >
+              Finalizar Temporada
+            </button>
+          )}
+        </div>
+
+        {showFinalizeSeason && currentSeason && (
+          <div className="mt-3.5 pt-3.5 border-t border-slate-800 space-y-2.5">
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              Isso encerra "{currentSeason.label}" hoje e abre uma nova temporada a partir de amanhã. Não há prazo fixo — finalize quando fizer sentido pro grupo.
+            </p>
+            <input
+              type="text"
+              value={nextSeasonLabel}
+              onChange={(e) => setNextSeasonLabel(e.target.value)}
+              placeholder={`Nome da nova temporada (padrão: Temporada ${store.getSeasons().length + 1})`}
+              className="w-full text-xs sm:text-sm p-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-500"
+            />
+            <div className="flex items-center gap-2 justify-end">
+              <button
+                onClick={() => {
+                  setShowFinalizeSeason(false);
+                  setNextSeasonLabel('');
+                }}
+                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleFinalizeSeason}
+                className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white shadow transition"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Reset Demo Data Card */}

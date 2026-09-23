@@ -46,6 +46,17 @@ export interface Game {
   createdAt: string;
 }
 
+// Temporada: período sem prazo fixo, aberto até o Admin finalizá-lo. Uma
+// rodada pertence à temporada cujo intervalo [startDate, endDate] contém sua
+// data — a temporada "atual" é a que tem endDate null.
+export interface Season {
+  id: string;
+  label: string;
+  startDate: string; // YYYY-MM-DD
+  endDate: string | null; // YYYY-MM-DD, null = temporada aberta/atual
+  createdAt: string;
+}
+
 export interface Match {
   id: string;
   date: string; // YYYY-MM-DD

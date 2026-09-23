@@ -43,6 +43,7 @@ export function usePeladaStore() {
     data,
     settings: data.settings,
     matches: data.matches,
+    seasons: data.seasons,
     players: data.players,
     statEvents: data.statEvents,
     auditLogs: data.auditLogs,

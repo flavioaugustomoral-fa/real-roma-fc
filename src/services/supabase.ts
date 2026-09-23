@@ -6,6 +6,7 @@ import {
   MatchPlayer,
   PeladaSettings,
   Player,
+  Season,
   StatEvent,
   Team,
 } from '../types/pelada';
@@ -91,6 +92,16 @@ function gameFromDb(row: any): Game {
   };
 }
 
+function seasonFromDb(row: any): Season {
+  return {
+    id: row.id,
+    label: row.label,
+    startDate: row.start_date,
+    endDate: row.end_date,
+    createdAt: row.created_at,
+  };
+}
+
 function auditLogFromDb(row: any): AuditLog {
   return {
     id: row.id,
@@ -130,13 +141,14 @@ export interface RemoteData {
   games: Game[];
   statEvents: StatEvent[];
   auditLogs: AuditLog[];
+  seasons: Season[];
   settings: RemoteSettings | null;
 }
 
 export async function fetchAllRemoteData(): Promise<RemoteData | null> {
   if (!supabase) return null;
   try {
-    const [playersRes, matchesRes, teamsRes, matchPlayersRes, gamesRes, statEventsRes, auditLogsRes, settingsRes] = await Promise.all([
+    const [playersRes, matchesRes, teamsRes, matchPlayersRes, gamesRes, statEventsRes, auditLogsRes, seasonsRes, settingsRes] = await Promise.all([
       supabase.from('players').select('*'),
       supabase.from('matches').select('*'),
       supabase.from('teams').select('*'),
@@ -144,6 +156,7 @@ export async function fetchAllRemoteData(): Promise<RemoteData | null> {
       supabase.from('games').select('*'),
       supabase.from('stat_events').select('*'),
       supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(500),
+      supabase.from('seasons').select('*'),
       supabase.from('pelada_settings').select('id, pelada_name, logo_url, venue_name, updated_at').eq('id', SETTINGS_ROW_ID).maybeSingle(),
     ]);
 
@@ -151,12 +164,13 @@ export async function fetchAllRemoteData(): Promise<RemoteData | null> {
     if (matchesRes.error) throw matchesRes.error;
     if (matchPlayersRes.error) throw matchPlayersRes.error;
     if (statEventsRes.error) throw statEventsRes.error;
-    // teams/games são tabelas novas (Times e Partidas): se o SQL de migração
-    // ainda não foi rodado neste projeto, elas simplesmente não existem ainda
-    // — trata como "nenhum time/partida ainda" em vez de derrubar a
+    // teams/games/seasons são tabelas novas: se o SQL de migração ainda não
+    // foi rodado neste projeto, elas simplesmente não existem ainda — trata
+    // como "nenhum time/partida/temporada ainda" em vez de derrubar a
     // sincronização inteira do app.
     if (teamsRes.error) console.warn('Tabela "teams" ainda não existe neste projeto Supabase (rode a migração de Times/Partidas):', teamsRes.error);
     if (gamesRes.error) console.warn('Tabela "games" ainda não existe neste projeto Supabase (rode a migração de Times/Partidas):', gamesRes.error);
+    if (seasonsRes.error) console.warn('Tabela "seasons" ainda não existe neste projeto Supabase (rode a migração de Temporadas):', seasonsRes.error);
 
     return {
       players: (playersRes.data || []).map(playerFromDb),
@@ -166,6 +180,7 @@ export async function fetchAllRemoteData(): Promise<RemoteData | null> {
       games: (gamesRes.data || []).map(gameFromDb),
       statEvents: (statEventsRes.data || []).map(statEventFromDb),
       auditLogs: (auditLogsRes.data || []).map(auditLogFromDb),
+      seasons: (seasonsRes.data || []).map(seasonFromDb),
       settings: settingsRes.data ? settingsFromDb(settingsRes.data) : null,
     };
   } catch (error) {
@@ -338,6 +353,50 @@ export async function deleteRemoteGame(gameId: string, pin: string) {
   if (error) console.error('Erro ao excluir partida no Supabase:', error);
 }
 
+// ------------------------------------------------------------------
+// Temporadas
+// ------------------------------------------------------------------
+
+// Semeia a primeira temporada (usado só na semeadura inicial de um projeto
+// Supabase vazio — depois disso toda troca de temporada passa por
+// finalizeSeasonRemote, que fecha a atual e abre a próxima em uma única
+// chamada).
+export async function pushSeason(season: Season, pin: string) {
+  if (!supabase) return;
+  const { error } = await supabase.rpc('admin_create_season', {
+    p_pin: pin,
+    p_id: season.id,
+    p_label: season.label,
+    p_start_date: season.startDate,
+    p_created_at: season.createdAt,
+  });
+  if (error) console.error('Erro ao salvar temporada no Supabase:', error);
+}
+
+// Fecha a temporada aberta (endDate = p_end_date) e já cria a próxima,
+// aberta (endDate null), em uma única transação no banco.
+export async function finalizeSeasonRemote(
+  pin: string,
+  endDate: string,
+  newId: string,
+  newStartDate: string,
+  newLabel: string
+): Promise<boolean> {
+  if (!supabase) return true;
+  const { error } = await supabase.rpc('admin_finalize_season', {
+    p_pin: pin,
+    p_end_date: endDate,
+    p_new_id: newId,
+    p_new_start_date: newStartDate,
+    p_new_label: newLabel,
+  });
+  if (error) {
+    console.error('Erro ao finalizar temporada no Supabase:', error);
+    return false;
+  }
+  return true;
+}
+
 // Lançar gol/assistência exige o PIN de Admin — o banco só aceita além disso
 // enquanto a rodada estiver EM ANDAMENTO (ver admin_add_stat_event no schema).
 // gameId fica de fora no modo clássico (rodada sem times/partidas).
@@ -410,6 +469,7 @@ export async function pushFullSnapshot(
     matchPlayers: MatchPlayer[];
     statEvents: StatEvent[];
     auditLogs: AuditLog[];
+    seasons: Season[];
     settings: PeladaSettings;
   },
   pin: string,
@@ -419,6 +479,9 @@ export async function pushFullSnapshot(
   try {
     if (includeSettings) {
       await pushSettings(data.settings, pin);
+    }
+    for (const s of data.seasons) {
+      await pushSeason(s, pin);
     }
     for (const p of data.players) {
       await pushPlayer(p, pin);
@@ -470,6 +533,7 @@ export function subscribeToRemoteChanges(onChange: () => void): () => void {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'match_players' }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'games' }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'stat_events' }, onChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'seasons' }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'pelada_settings' }, onChange)
     .subscribe();
 

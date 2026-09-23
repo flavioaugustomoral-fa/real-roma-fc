@@ -31,11 +31,16 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
   const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
   const [selectedMatchId, setSelectedMatchId] = useState<string>('');
+  const [selectedSeasonId, setSelectedSeasonId] = useState<string>('');
 
   // Show full list beyond Top 10 toggle
   const [showFullList, setShowFullList] = useState(false);
 
   const availableYears = useMemo(() => store.getAvailableYears(), [store, data]);
+
+  // Temporadas, mais recente primeiro — candidatas do seletor "Temporada".
+  const seasons = useMemo(() => store.getSeasons(), [store, data]);
+  const currentSeason = useMemo(() => store.getCurrentSeason(), [store, data]);
 
   // Rodadas finalizadas, mais recente primeiro — candidatas do seletor "Rodada".
   const finalizedMatches = useMemo(
@@ -56,8 +61,9 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
       month: selectedMonth,
       year: selectedYear,
       matchId: selectedMatchId || undefined,
+      seasonId: selectedSeasonId || undefined,
     });
-  }, [store, rankingType, scope, selectedMonth, selectedYear, selectedMatchId, data]);
+  }, [store, rankingType, scope, selectedMonth, selectedYear, selectedMatchId, selectedSeasonId, data]);
 
   // Section 27: Top 10 by default
   const displayedItems = useMemo(() => {
@@ -132,7 +138,12 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
         <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
           <div className="flex items-center gap-1 bg-slate-950/60 p-1 rounded-xl border border-slate-800/80">
             <button
-              onClick={() => setScope('SEASON')}
+              onClick={() => {
+                setScope('SEASON');
+                if (!selectedSeasonId && currentSeason) {
+                  setSelectedSeasonId(currentSeason.id);
+                }
+              }}
               id="scope-season"
               className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
                 scope === 'SEASON'
@@ -201,17 +212,21 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
 
           {scope === 'SEASON' && (
             <div className="flex items-center gap-1.5">
-              <select
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(Number(e.target.value))}
-                className="text-xs font-semibold py-1.5 px-2.5 rounded-lg bg-slate-950 border border-slate-700 text-slate-200 focus:outline-none focus:border-emerald-500"
-              >
-                {availableYears.map(y => (
-                  <option key={y} value={y}>
-                    {y}
-                  </option>
-                ))}
-              </select>
+              {seasons.length === 0 ? (
+                <span className="text-xs text-slate-500 italic">Nenhuma temporada iniciada ainda.</span>
+              ) : (
+                <select
+                  value={selectedSeasonId || currentSeason?.id || ''}
+                  onChange={(e) => setSelectedSeasonId(e.target.value)}
+                  className="text-xs font-semibold py-1.5 px-2.5 rounded-lg bg-slate-950 border border-slate-700 text-slate-200 focus:outline-none focus:border-emerald-500"
+                >
+                  {seasons.map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.label}{s.endDate === null ? ' (atual)' : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           )}
 

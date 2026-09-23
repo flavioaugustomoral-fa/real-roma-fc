@@ -21,28 +21,26 @@ export const HomeView: React.FC<HomeViewProps> = ({
 }) => {
   const { data, settings, activeMatch, store, isAdmin } = usePeladaStore();
 
-  const now = new Date();
-  const currentYear = now.getFullYear();
+  const currentSeason = useMemo(() => store.getCurrentSeason(), [store, data]);
+  const seasonLabel = currentSeason?.label || 'Temporada';
 
-  // Top 5 Scorers of current year (Annual)
-  const topScorersYear = useMemo(() => {
+  // Top 5 Scorers of the current (open) season
+  const topScorersSeason = useMemo(() => {
     const res = store.getRankings({
       type: 'GOAL',
       scope: 'SEASON',
-      year: currentYear,
     });
     return res.items.slice(0, 5);
-  }, [store, currentYear, data]);
+  }, [store, data]);
 
-  // Top 5 Assists of current year (Annual)
-  const topAssistsYear = useMemo(() => {
+  // Top 5 Assists of the current (open) season
+  const topAssistsSeason = useMemo(() => {
     const res = store.getRankings({
       type: 'ASSIST',
       scope: 'SEASON',
-      year: currentYear,
     });
     return res.items.slice(0, 5);
-  }, [store, currentYear, data]);
+  }, [store, data]);
 
   const isLive = activeMatch?.status === 'IN_PROGRESS';
 
@@ -128,7 +126,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <div className="flex items-center gap-2">
               <span className="text-lg">⚽</span>
               <h3 className="text-xs font-black uppercase tracking-wider text-slate-200">
-                Artilharia do Ano ({currentYear})
+                Artilharia da {seasonLabel}
               </h3>
             </div>
             <button
@@ -139,13 +137,13 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </button>
           </div>
 
-          {topScorersYear.length === 0 ? (
+          {topScorersSeason.length === 0 ? (
             <p className="text-xs text-slate-500 italic py-4 text-center">
-              Nenhum gol registrado no ano de {currentYear}.
+              Nenhum gol registrado na {seasonLabel}.
             </p>
           ) : (
             <div className="space-y-2">
-              {topScorersYear.map((item, i) => (
+              {topScorersSeason.map((item, i) => (
                 <button
                   key={item.player.id}
                   onClick={() => onSelectPlayer(item.player.id)}
@@ -176,7 +174,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <div className="flex items-center gap-2">
               <span className="text-lg">👟</span>
               <h3 className="text-xs font-black uppercase tracking-wider text-slate-200">
-                Garçons do Ano ({currentYear})
+                Garçons da {seasonLabel}
               </h3>
             </div>
             <button
@@ -187,13 +185,13 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </button>
           </div>
 
-          {topAssistsYear.length === 0 ? (
+          {topAssistsSeason.length === 0 ? (
             <p className="text-xs text-slate-500 italic py-4 text-center">
-              Nenhuma assistência registrada no ano de {currentYear}.
+              Nenhuma assistência registrada na {seasonLabel}.
             </p>
           ) : (
             <div className="space-y-2">
-              {topAssistsYear.map((item, i) => (
+              {topAssistsSeason.map((item, i) => (
                 <button
                   key={item.player.id}
                   onClick={() => onSelectPlayer(item.player.id)}
