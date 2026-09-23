@@ -11,10 +11,14 @@ interface PlayerModalProps {
 export const PlayerModal: React.FC<PlayerModalProps> = ({ playerId, onClose }) => {
   const { data, store, isAdmin } = usePeladaStore();
 
+  const seasons = useMemo(() => store.getSeasons(), [store, data]);
+  const currentSeason = useMemo(() => store.getCurrentSeason(), [store, data]);
+  const [selectedSeasonId, setSelectedSeasonId] = useState('');
+
   const summary = useMemo(() => {
     if (!playerId) return null;
-    return store.getPlayerSummary(playerId);
-  }, [store, playerId, data]);
+    return store.getPlayerSummary(playerId, selectedSeasonId || undefined);
+  }, [store, playerId, selectedSeasonId, data]);
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
@@ -26,7 +30,13 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({ playerId, onClose }) =
     setIsEditingName(false);
     setRenameError(null);
     setMergeNotice(null);
-    if (summary) setNameInput(summary.player.displayName);
+    // Cada abertura do perfil parte da temporada atual — o Admin/usuário
+    // pode trocar depois pelo seletor. Nome vem direto do jogador (não do
+    // summary, que já depende da temporada) pra não sobrescrever uma edição
+    // em andamento quando o usuário trocar de temporada.
+    setSelectedSeasonId(currentSeason?.id || '');
+    const player = store.getPlayerById(playerId || '');
+    if (player) setNameInput(player.displayName);
   }, [playerId]);
 
   if (!playerId || !summary) return null;
@@ -133,6 +143,26 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({ playerId, onClose }) =
         {mergeNotice && (
           <div className="mb-4 -mt-1 p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-800/60 text-xs text-emerald-300">
             {mergeNotice}
+          </div>
+        )}
+
+        {/* Seletor de Temporada — estatísticas abaixo são só dela */}
+        {seasons.length > 0 && (
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+              Estatísticas da
+            </span>
+            <select
+              value={selectedSeasonId || currentSeason?.id || ''}
+              onChange={(e) => setSelectedSeasonId(e.target.value)}
+              className="text-xs font-semibold py-1.5 px-2.5 rounded-lg bg-slate-950 border border-slate-700 text-slate-200 focus:outline-none focus:border-emerald-500"
+            >
+              {seasons.map(s => (
+                <option key={s.id} value={s.id}>
+                  {s.label}{s.endDate === null ? ' (atual)' : ''}
+                </option>
+              ))}
+            </select>
           </div>
         )}
 

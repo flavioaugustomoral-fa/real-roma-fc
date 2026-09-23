@@ -1599,11 +1599,22 @@ class PeladaStore {
   }
 
   // Individual Player Summary across all finalized matches
-  public getPlayerSummary(playerId: string): PlayerStatSummary | null {
+  // seasonId omitido cai na temporada atual (aberta); se nem isso existir
+  // ainda (app sem nenhuma temporada cadastrada), mostra o histórico
+  // completo em vez de zerar tudo.
+  public getPlayerSummary(playerId: string, seasonId?: string): PlayerStatSummary | null {
     const player = this.getPlayerById(playerId);
     if (!player) return null;
 
-    const finalizedMatches = this.data.matches.filter(m => m.status === 'FINALIZED');
+    let finalizedMatches = this.data.matches.filter(m => m.status === 'FINALIZED');
+    const season = seasonId
+      ? this.data.seasons.find(s => s.id === seasonId)
+      : this.getCurrentSeason();
+    if (season) {
+      finalizedMatches = finalizedMatches.filter(m =>
+        m.date >= season.startDate && (season.endDate === null || m.date <= season.endDate)
+      );
+    }
     const finalizedMatchMap = new Map(finalizedMatches.map(m => [m.id, m]));
 
     // Matches where player participated officially
