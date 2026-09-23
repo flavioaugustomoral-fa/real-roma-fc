@@ -729,7 +729,6 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
                     <span className="w-6 text-center" title="Empates">E</span>
                     <span className="w-6 text-center" title="Derrotas">D</span>
                     <span className="w-8 text-center" title="Saldo de gols">SG</span>
-                    <span className="w-8 text-center" title="Pontos">Pts</span>
                   </div>
                 </div>
                 {teamStandings.map((row, i) => (
@@ -751,7 +750,6 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
                       <span className="w-8 text-center text-slate-400" title="Saldo de gols">
                         {row.goalsFor - row.goalsAgainst > 0 ? '+' : ''}{row.goalsFor - row.goalsAgainst}
                       </span>
-                      <span className="w-8 text-center text-amber-300 font-black" title="Pontos">{row.points}</span>
                     </div>
                   </div>
                 ))}
