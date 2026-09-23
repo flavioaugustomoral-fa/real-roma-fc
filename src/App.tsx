@@ -3,6 +3,7 @@ import { BottomNav, NavTab } from './components/BottomNav';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { HomeView } from './components/HomeView';
 import { MatchLiveView } from './components/MatchLiveView';
+import { GameLiveView } from './components/GameLiveView';
 import { RankingsView } from './components/RankingsView';
 import { HistoryView } from './components/HistoryView';
 import { AdminView } from './components/AdminView';
@@ -20,20 +21,24 @@ export default function App() {
 
   // When a match is created or chosen to play
   const [matchForLiveView, setMatchForLiveView] = useState<Match | null>(null);
+  // Partida aberta dentro da rodada (tela de 2 colunas com Registrar)
+  const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
 
-  // Determine which match to display on the "Pelada" tab. Once a match is
+  // Determine which match to display on the "Rodada" tab. Once a match is
   // finalized it's no longer IN_PROGRESS/DRAFT, so activeMatch stops
-  // returning it and the tab falls back to "Nenhuma Pelada Ativa" — no
+  // returning it and the tab falls back to "Nenhuma Rodada Ativa" — no
   // stale finalized match lingers there inviting new lançamentos.
   const currentMatchToDisplay = matchForLiveView || activeMatch || null;
 
   const handleMatchCreatedSuccess = (matchId: string) => {
     setIsCreateMatchOpen(false);
+    setSelectedGameId(null);
     setCurrentTab('match');
   };
 
   const handleSelectMatchToPlay = (match: Match) => {
     setMatchForLiveView(match);
+    setSelectedGameId(null);
     setCurrentTab('match');
   };
 
@@ -55,15 +60,26 @@ export default function App() {
         {currentTab === 'match' && (
           <div>
             {currentMatchToDisplay ? (
-              <MatchLiveView
-                match={currentMatchToDisplay}
-                onOpenCreateMatch={() => setIsCreateMatchOpen(true)}
-                onViewPlayerStats={(id) => setSelectedPlayerId(id)}
-                onMatchDeleted={() => {
-                  setMatchForLiveView(null);
-                  setCurrentTab('home');
-                }}
-              />
+              selectedGameId ? (
+                <GameLiveView
+                  gameId={selectedGameId}
+                  matchId={currentMatchToDisplay.id}
+                  onBack={() => setSelectedGameId(null)}
+                  onViewPlayerStats={(id) => setSelectedPlayerId(id)}
+                />
+              ) : (
+                <MatchLiveView
+                  match={currentMatchToDisplay}
+                  onOpenCreateMatch={() => setIsCreateMatchOpen(true)}
+                  onViewPlayerStats={(id) => setSelectedPlayerId(id)}
+                  onOpenGame={(gameId) => setSelectedGameId(gameId)}
+                  onMatchDeleted={() => {
+                    setMatchForLiveView(null);
+                    setSelectedGameId(null);
+                    setCurrentTab('home');
+                  }}
+                />
+              )
             ) : (
               <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center max-w-md mx-auto my-12 shadow-2xl">
                 <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-4">
@@ -71,7 +87,7 @@ export default function App() {
                 </div>
                 <h2 className="text-xl font-black text-white mb-2">Nenhuma Rodada Ativa</h2>
                 <p className="text-xs text-slate-400 mb-6 leading-relaxed">
-                  Para começar a registrar gols e assistências em tempo real, crie uma nova rodada colando a lista de participantes.
+                  Para começar, crie uma rodada e monte os times dentro dela.
                 </p>
 
                 {isAdmin ? (
@@ -120,6 +136,7 @@ export default function App() {
           if (tab === 'match') {
             // Reset override if active match exists
             if (activeMatch) setMatchForLiveView(null);
+            setSelectedGameId(null);
           }
         }}
       />

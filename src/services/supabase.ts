@@ -1,11 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
 import {
   AuditLog,
+  Game,
   Match,
   MatchPlayer,
   PeladaSettings,
   Player,
   StatEvent,
+  Team,
 } from '../types/pelada';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
@@ -52,6 +54,7 @@ function matchPlayerFromDb(row: any): MatchPlayer {
     matchId: row.match_id,
     playerId: row.player_id,
     playerNameAsEntered: row.player_name_as_entered,
+    teamId: row.team_id,
     createdAt: row.created_at,
   };
 }
@@ -63,6 +66,26 @@ function statEventFromDb(row: any): StatEvent {
     playerId: row.player_id,
     type: row.type,
     createdBy: row.created_by,
+    gameId: row.game_id,
+    createdAt: row.created_at,
+  };
+}
+
+function teamFromDb(row: any): Team {
+  return {
+    id: row.id,
+    matchId: row.match_id,
+    name: row.name,
+    createdAt: row.created_at,
+  };
+}
+
+function gameFromDb(row: any): Game {
+  return {
+    id: row.id,
+    matchId: row.match_id,
+    teamAId: row.team_a_id,
+    teamBId: row.team_b_id,
     createdAt: row.created_at,
   };
 }
@@ -101,7 +124,9 @@ function settingsFromDb(row: any): RemoteSettings {
 export interface RemoteData {
   players: Player[];
   matches: Match[];
+  teams: Team[];
   matchPlayers: MatchPlayer[];
+  games: Game[];
   statEvents: StatEvent[];
   auditLogs: AuditLog[];
   settings: RemoteSettings | null;
@@ -110,10 +135,12 @@ export interface RemoteData {
 export async function fetchAllRemoteData(): Promise<RemoteData | null> {
   if (!supabase) return null;
   try {
-    const [playersRes, matchesRes, matchPlayersRes, statEventsRes, auditLogsRes, settingsRes] = await Promise.all([
+    const [playersRes, matchesRes, teamsRes, matchPlayersRes, gamesRes, statEventsRes, auditLogsRes, settingsRes] = await Promise.all([
       supabase.from('players').select('*'),
       supabase.from('matches').select('*'),
+      supabase.from('teams').select('*'),
       supabase.from('match_players').select('*'),
+      supabase.from('games').select('*'),
       supabase.from('stat_events').select('*'),
       supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(500),
       supabase.from('pelada_settings').select('id, pelada_name, logo_url, venue_name, updated_at').eq('id', SETTINGS_ROW_ID).maybeSingle(),
@@ -123,11 +150,19 @@ export async function fetchAllRemoteData(): Promise<RemoteData | null> {
     if (matchesRes.error) throw matchesRes.error;
     if (matchPlayersRes.error) throw matchPlayersRes.error;
     if (statEventsRes.error) throw statEventsRes.error;
+    // teams/games são tabelas novas (Times e Partidas): se o SQL de migração
+    // ainda não foi rodado neste projeto, elas simplesmente não existem ainda
+    // — trata como "nenhum time/partida ainda" em vez de derrubar a
+    // sincronização inteira do app.
+    if (teamsRes.error) console.warn('Tabela "teams" ainda não existe neste projeto Supabase (rode a migração de Times/Partidas):', teamsRes.error);
+    if (gamesRes.error) console.warn('Tabela "games" ainda não existe neste projeto Supabase (rode a migração de Times/Partidas):', gamesRes.error);
 
     return {
       players: (playersRes.data || []).map(playerFromDb),
       matches: (matchesRes.data || []).map(matchFromDb),
+      teams: (teamsRes.data || []).map(teamFromDb),
       matchPlayers: (matchPlayersRes.data || []).map(matchPlayerFromDb),
+      games: (gamesRes.data || []).map(gameFromDb),
       statEvents: (statEventsRes.data || []).map(statEventFromDb),
       auditLogs: (auditLogsRes.data || []).map(auditLogFromDb),
       settings: settingsRes.data ? settingsFromDb(settingsRes.data) : null,
@@ -241,8 +276,69 @@ export async function replaceMatchPlayers(matchId: string, list: MatchPlayer[], 
   if (error) console.error('Erro ao salvar participantes no Supabase:', error);
 }
 
+// ------------------------------------------------------------------
+// Times e Partidas (modo "novo" da rodada)
+// ------------------------------------------------------------------
+
+export async function pushTeam(team: Team, pin: string) {
+  if (!supabase) return;
+  const { error } = await supabase.rpc('admin_create_team', {
+    p_pin: pin,
+    p_id: team.id,
+    p_match_id: team.matchId,
+    p_name: team.name,
+    p_created_at: team.createdAt,
+  });
+  if (error) console.error('Erro ao salvar time no Supabase:', error);
+}
+
+export async function deleteRemoteTeam(teamId: string, pin: string) {
+  if (!supabase) return;
+  const { error } = await supabase.rpc('admin_delete_team', { p_pin: pin, p_id: teamId });
+  if (error) console.error('Erro ao excluir time no Supabase:', error);
+}
+
+// Substitui o elenco de um time (usado tanto pra montar o elenco inicial
+// quanto pra corrigir depois).
+export async function setTeamRoster(teamId: string, matchId: string, list: MatchPlayer[], pin: string) {
+  if (!supabase) return;
+  const rows = list.map(mp => ({
+    id: mp.id,
+    playerId: mp.playerId,
+    playerNameAsEntered: mp.playerNameAsEntered,
+    createdAt: mp.createdAt,
+  }));
+  const { error } = await supabase.rpc('admin_set_team_roster', {
+    p_pin: pin,
+    p_team_id: teamId,
+    p_match_id: matchId,
+    p_rows: rows,
+  });
+  if (error) console.error('Erro ao salvar elenco do time no Supabase:', error);
+}
+
+export async function pushGame(game: Game, pin: string) {
+  if (!supabase) return;
+  const { error } = await supabase.rpc('admin_create_game', {
+    p_pin: pin,
+    p_id: game.id,
+    p_match_id: game.matchId,
+    p_team_a_id: game.teamAId,
+    p_team_b_id: game.teamBId,
+    p_created_at: game.createdAt,
+  });
+  if (error) console.error('Erro ao salvar partida no Supabase:', error);
+}
+
+export async function deleteRemoteGame(gameId: string, pin: string) {
+  if (!supabase) return;
+  const { error } = await supabase.rpc('admin_delete_game', { p_pin: pin, p_id: gameId });
+  if (error) console.error('Erro ao excluir partida no Supabase:', error);
+}
+
 // Lançar gol/assistência exige o PIN de Admin — o banco só aceita além disso
-// enquanto a pelada estiver EM ANDAMENTO (ver admin_add_stat_event no schema).
+// enquanto a rodada estiver EM ANDAMENTO (ver admin_add_stat_event no schema).
+// gameId fica de fora no modo clássico (rodada sem times/partidas).
 export async function pushStatEvent(ev: StatEvent, pin: string) {
   if (!supabase) return;
   const { error } = await supabase.rpc('admin_add_stat_event', {
@@ -252,6 +348,7 @@ export async function pushStatEvent(ev: StatEvent, pin: string) {
     p_player_id: ev.playerId,
     p_type: ev.type,
     p_created_by: ev.createdBy,
+    p_game_id: ev.gameId || null,
   });
   if (error) console.error('Erro ao salvar lançamento no Supabase:', error);
 }
@@ -367,7 +464,9 @@ export function subscribeToRemoteChanges(onChange: () => void): () => void {
     .channel('pelada-shared-data')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, onChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'match_players' }, onChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'games' }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'stat_events' }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'pelada_settings' }, onChange)
     .subscribe();

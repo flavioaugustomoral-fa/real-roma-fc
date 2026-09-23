@@ -156,7 +156,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onOpenCreateMatch }) => {
             Criar Nova Rodada
           </h3>
           <p className="text-xs text-slate-400">
-            Cole a lista de participantes e inicie a partida
+            Depois monte os times e as partidas dentro dela
           </p>
         </div>
       </button>

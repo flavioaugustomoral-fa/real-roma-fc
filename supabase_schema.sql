@@ -14,7 +14,9 @@
 DROP VIEW IF EXISTS view_ranking_gols;
 DROP VIEW IF EXISTS view_ranking_assistencias;
 DROP TABLE IF EXISTS public.stat_events CASCADE;
+DROP TABLE IF EXISTS public.games CASCADE;
 DROP TABLE IF EXISTS public.match_players CASCADE;
+DROP TABLE IF EXISTS public.teams CASCADE;
 DROP TABLE IF EXISTS public.audit_logs CASCADE;
 DROP TABLE IF EXISTS public.matches CASCADE;
 DROP TABLE IF EXISTS public.players CASCADE;
@@ -31,7 +33,13 @@ DROP FUNCTION IF EXISTS admin_replace_match_players(TEXT, TEXT, JSONB);
 DROP FUNCTION IF EXISTS admin_delete_stat_event(TEXT, TEXT);
 DROP FUNCTION IF EXISTS admin_insert_stat_event(TEXT, TEXT, TEXT, TEXT, stat_event_type_enum, TEXT, TIMESTAMPTZ);
 DROP FUNCTION IF EXISTS admin_add_stat_event(TEXT, TEXT, TEXT, TEXT, stat_event_type_enum, TEXT);
+DROP FUNCTION IF EXISTS admin_add_stat_event(TEXT, TEXT, TEXT, TEXT, stat_event_type_enum, TEXT, TEXT);
 DROP FUNCTION IF EXISTS admin_rename_player(TEXT, TEXT, TEXT, TEXT);
+DROP FUNCTION IF EXISTS admin_create_team(TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ);
+DROP FUNCTION IF EXISTS admin_delete_team(TEXT, TEXT);
+DROP FUNCTION IF EXISTS admin_set_team_roster(TEXT, TEXT, TEXT, JSONB);
+DROP FUNCTION IF EXISTS admin_create_game(TEXT, TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ);
+DROP FUNCTION IF EXISTS admin_delete_game(TEXT, TEXT);
 DROP FUNCTION IF EXISTS admin_insert_audit_log(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ);
 DROP FUNCTION IF EXISTS admin_upsert_settings(TEXT, TEXT, TEXT, TEXT, TEXT);
 DROP FUNCTION IF EXISTS admin_wipe_all(TEXT);
@@ -71,20 +79,48 @@ CREATE TABLE IF NOT EXISTS public.matches (
 CREATE INDEX IF NOT EXISTS idx_matches_date ON public.matches(date DESC);
 CREATE INDEX IF NOT EXISTS idx_matches_status ON public.matches(status);
 
--- 4. Tabela: match_players (participações oficiais daquela pelada)
+-- 4. Tabela: teams (times avulsos, montados dentro de uma rodada)
+CREATE TABLE IF NOT EXISTS public.teams (
+  id TEXT PRIMARY KEY,
+  match_id TEXT NOT NULL REFERENCES public.matches(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_teams_match ON public.teams(match_id);
+
+-- 5. Tabela: match_players (participações oficiais daquela pelada). team_id
+-- fica nulo nas rodadas antigas (sem times) — o app trata isso como o modo
+-- "clássico" da tela da rodada.
 CREATE TABLE IF NOT EXISTS public.match_players (
   id TEXT PRIMARY KEY,
   match_id TEXT NOT NULL REFERENCES public.matches(id) ON DELETE CASCADE,
   player_id TEXT NOT NULL REFERENCES public.players(id) ON DELETE RESTRICT,
   player_name_as_entered TEXT NOT NULL,
+  team_id TEXT REFERENCES public.teams(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT unique_player_per_match UNIQUE (match_id, player_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_match_players_match ON public.match_players(match_id);
 CREATE INDEX IF NOT EXISTS idx_match_players_player ON public.match_players(player_id);
+CREATE INDEX IF NOT EXISTS idx_match_players_team ON public.match_players(team_id);
 
--- 5. Tabela: stat_events (lançamentos individuais de gols e assistências)
+-- 6. Tabela: games ("partidas" — confronto entre 2 times de uma mesma rodada)
+CREATE TABLE IF NOT EXISTS public.games (
+  id TEXT PRIMARY KEY,
+  match_id TEXT NOT NULL REFERENCES public.matches(id) ON DELETE CASCADE,
+  team_a_id TEXT NOT NULL REFERENCES public.teams(id) ON DELETE CASCADE,
+  team_b_id TEXT NOT NULL REFERENCES public.teams(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT games_teams_different CHECK (team_a_id <> team_b_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_games_match ON public.games(match_id);
+
+-- 7. Tabela: stat_events (lançamentos individuais de gols e assistências).
+-- game_id fica nulo nos lançamentos de rodadas antigas (modo clássico, sem
+-- partida específica).
 DO $$ BEGIN
   CREATE TYPE stat_event_type_enum AS ENUM ('GOAL', 'ASSIST');
 EXCEPTION
@@ -95,6 +131,7 @@ CREATE TABLE IF NOT EXISTS public.stat_events (
   id TEXT PRIMARY KEY,
   match_id TEXT NOT NULL REFERENCES public.matches(id) ON DELETE CASCADE,
   player_id TEXT NOT NULL REFERENCES public.players(id) ON DELETE RESTRICT,
+  game_id TEXT REFERENCES public.games(id) ON DELETE CASCADE,
   type stat_event_type_enum NOT NULL,
   created_by TEXT NOT NULL DEFAULT 'Participante',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -102,8 +139,9 @@ CREATE TABLE IF NOT EXISTS public.stat_events (
 
 CREATE INDEX IF NOT EXISTS idx_stat_events_match ON public.stat_events(match_id);
 CREATE INDEX IF NOT EXISTS idx_stat_events_player_type ON public.stat_events(player_id, type);
+CREATE INDEX IF NOT EXISTS idx_stat_events_game ON public.stat_events(game_id);
 
--- 6. Tabela: audit_logs (registro de ações administrativas)
+-- 8. Tabela: audit_logs (registro de ações administrativas)
 CREATE TABLE IF NOT EXISTS public.audit_logs (
   id TEXT PRIMARY KEY,
   match_id TEXT REFERENCES public.matches(id) ON DELETE SET NULL,
@@ -113,7 +151,7 @@ CREATE TABLE IF NOT EXISTS public.audit_logs (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 7. Tabela: pelada_settings (configurações compartilhadas do grupo - linha única)
+-- 9. Tabela: pelada_settings (configurações compartilhadas do grupo - linha única)
 CREATE TABLE IF NOT EXISTS public.pelada_settings (
   id TEXT PRIMARY KEY DEFAULT 'default',
   pelada_name TEXT NOT NULL DEFAULT 'Pelada dos Amigos',
@@ -143,7 +181,9 @@ $$ LANGUAGE plpgsql IMMUTABLE;
 
 ALTER TABLE public.players ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.matches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.teams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.match_players ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.games ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.stat_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pelada_settings ENABLE ROW LEVEL SECURITY;
@@ -177,6 +217,12 @@ CREATE POLICY "Leitura publica pelada_settings" ON public.pelada_settings FOR SE
 
 DROP POLICY IF EXISTS "Leitura publica stat_events" ON public.stat_events;
 CREATE POLICY "Leitura publica stat_events" ON public.stat_events FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Leitura publica teams" ON public.teams;
+CREATE POLICY "Leitura publica teams" ON public.teams FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Leitura publica games" ON public.games;
+CREATE POLICY "Leitura publica games" ON public.games FOR SELECT USING (true);
 
 -- stat_events: nenhuma escrita pública. Lançar gol/assistência exige o PIN
 -- de Admin e passa por admin_add_stat_event() (só funciona com a pelada EM
@@ -310,6 +356,8 @@ $$;
 
 -- Substitui toda a lista de participantes de uma pelada (apaga e reinsere).
 -- Usada tanto para lançar a lista inicial quanto para uma correção do Admin.
+-- Só serve pro modo clássico (sem times) — rodadas com times usam
+-- admin_set_team_roster() por time.
 CREATE OR REPLACE FUNCTION admin_replace_match_players(p_pin TEXT, p_match_id TEXT, p_rows JSONB)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE r JSONB;
@@ -326,6 +374,74 @@ BEGIN
 END;
 $$;
 
+-- Cria (ou renomeia) um time dentro de uma rodada.
+CREATE OR REPLACE FUNCTION admin_create_team(p_pin TEXT, p_id TEXT, p_match_id TEXT, p_name TEXT, p_created_at TIMESTAMPTZ)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  PERFORM check_admin_pin(p_pin);
+  INSERT INTO public.teams (id, match_id, name, created_at)
+  VALUES (p_id, p_match_id, p_name, COALESCE(p_created_at, NOW()))
+  ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name;
+END;
+$$;
+
+-- Exclui um time e, junto, a participação dos jogadores que estavam nele
+-- (um time sem dono não faz sentido nesse modelo). Partidas que envolviam
+-- esse time são excluídas em cascata (FK team_a_id/team_b_id), e os
+-- lançamentos dessas partidas também (FK game_id em stat_events).
+CREATE OR REPLACE FUNCTION admin_delete_team(p_pin TEXT, p_id TEXT)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  PERFORM check_admin_pin(p_pin);
+  DELETE FROM public.match_players WHERE team_id = p_id;
+  DELETE FROM public.teams WHERE id = p_id;
+END;
+$$;
+
+-- Substitui o elenco de UM time (apaga e reinsere), mesmo padrão de
+-- admin_replace_match_players só que restrito a um team_id.
+CREATE OR REPLACE FUNCTION admin_set_team_roster(p_pin TEXT, p_team_id TEXT, p_match_id TEXT, p_rows JSONB)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE r JSONB;
+BEGIN
+  PERFORM check_admin_pin(p_pin);
+  DELETE FROM public.match_players WHERE team_id = p_team_id;
+  FOR r IN SELECT * FROM jsonb_array_elements(p_rows) LOOP
+    INSERT INTO public.match_players (id, match_id, player_id, player_name_as_entered, team_id, created_at)
+    VALUES (
+      r->>'id', p_match_id, r->>'playerId', r->>'playerNameAsEntered', p_team_id,
+      COALESCE((r->>'createdAt')::timestamptz, NOW())
+    );
+  END LOOP;
+END;
+$$;
+
+-- Cria uma partida (confronto entre 2 times da MESMA rodada).
+CREATE OR REPLACE FUNCTION admin_create_game(
+  p_pin TEXT, p_id TEXT, p_match_id TEXT, p_team_a_id TEXT, p_team_b_id TEXT, p_created_at TIMESTAMPTZ
+) RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  PERFORM check_admin_pin(p_pin);
+  IF p_team_a_id = p_team_b_id THEN
+    RAISE EXCEPTION 'Os dois times da partida precisam ser diferentes' USING ERRCODE = '22000';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.teams WHERE id = p_team_a_id AND match_id = p_match_id)
+     OR NOT EXISTS (SELECT 1 FROM public.teams WHERE id = p_team_b_id AND match_id = p_match_id) THEN
+    RAISE EXCEPTION 'Os times precisam pertencer à mesma rodada' USING ERRCODE = '22000';
+  END IF;
+  INSERT INTO public.games (id, match_id, team_a_id, team_b_id, created_at)
+  VALUES (p_id, p_match_id, p_team_a_id, p_team_b_id, COALESCE(p_created_at, NOW()));
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION admin_delete_game(p_pin TEXT, p_id TEXT)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  PERFORM check_admin_pin(p_pin);
+  DELETE FROM public.games WHERE id = p_id;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION admin_delete_stat_event(p_pin TEXT, p_id TEXT)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -334,19 +450,43 @@ BEGIN
 END;
 $$;
 
--- Lança gol/assistência ao vivo. Só funciona com PIN correto E a pelada
+-- Lança gol/assistência ao vivo. Só funciona com PIN correto E a rodada
 -- realmente EM ANDAMENTO (diferente de admin_insert_stat_event, que é só
--- para semear/restaurar peladas já finalizadas).
+-- para semear/restaurar rodadas já finalizadas). p_game_id é opcional: nulo
+-- no modo clássico (rodada sem times); quando informado, confere que o
+-- jogador realmente pertence a um dos 2 times daquela partida.
 CREATE OR REPLACE FUNCTION admin_add_stat_event(
-  p_pin TEXT, p_id TEXT, p_match_id TEXT, p_player_id TEXT, p_type stat_event_type_enum, p_created_by TEXT
+  p_pin TEXT, p_id TEXT, p_match_id TEXT, p_player_id TEXT, p_type stat_event_type_enum, p_created_by TEXT,
+  p_game_id TEXT DEFAULT NULL
 ) RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_team_a TEXT;
+  v_team_b TEXT;
+  v_player_team TEXT;
 BEGIN
   PERFORM check_admin_pin(p_pin);
   IF NOT EXISTS (SELECT 1 FROM public.matches WHERE id = p_match_id AND status = 'IN_PROGRESS') THEN
-    RAISE EXCEPTION 'A pelada não está em andamento' USING ERRCODE = '22000';
+    RAISE EXCEPTION 'A rodada não está em andamento' USING ERRCODE = '22000';
   END IF;
-  INSERT INTO public.stat_events (id, match_id, player_id, type, created_by, created_at)
-  VALUES (p_id, p_match_id, p_player_id, p_type, p_created_by, NOW());
+
+  IF p_game_id IS NOT NULL THEN
+    SELECT team_a_id, team_b_id INTO v_team_a, v_team_b
+    FROM public.games WHERE id = p_game_id AND match_id = p_match_id;
+
+    IF v_team_a IS NULL THEN
+      RAISE EXCEPTION 'Partida não encontrada nesta rodada' USING ERRCODE = '22000';
+    END IF;
+
+    SELECT team_id INTO v_player_team
+    FROM public.match_players WHERE match_id = p_match_id AND player_id = p_player_id;
+
+    IF v_player_team IS NULL OR v_player_team NOT IN (v_team_a, v_team_b) THEN
+      RAISE EXCEPTION 'Jogador não pertence a nenhum dos times desta partida' USING ERRCODE = '22000';
+    END IF;
+  END IF;
+
+  INSERT INTO public.stat_events (id, match_id, player_id, type, created_by, created_at, game_id)
+  VALUES (p_id, p_match_id, p_player_id, p_type, p_created_by, NOW(), p_game_id);
 END;
 $$;
 
@@ -430,8 +570,13 @@ GRANT EXECUTE ON FUNCTION admin_rename_player(TEXT, TEXT, TEXT, TEXT) TO anon, a
 GRANT EXECUTE ON FUNCTION admin_upsert_match(TEXT, TEXT, DATE, TIME, match_status_enum, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_delete_match(TEXT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_replace_match_players(TEXT, TEXT, JSONB) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION admin_create_team(TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION admin_delete_team(TEXT, TEXT) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION admin_set_team_roster(TEXT, TEXT, TEXT, JSONB) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION admin_create_game(TEXT, TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION admin_delete_game(TEXT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_delete_stat_event(TEXT, TEXT) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION admin_add_stat_event(TEXT, TEXT, TEXT, TEXT, stat_event_type_enum, TEXT) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION admin_add_stat_event(TEXT, TEXT, TEXT, TEXT, stat_event_type_enum, TEXT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_insert_stat_event(TEXT, TEXT, TEXT, TEXT, stat_event_type_enum, TEXT, TIMESTAMPTZ) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_insert_audit_log(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_upsert_settings(TEXT, TEXT, TEXT, TEXT, TEXT) TO anon, authenticated;
@@ -447,7 +592,13 @@ DO $$ BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE public.matches;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.teams;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE public.match_players;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.games;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE public.stat_events;

@@ -14,6 +14,7 @@ export interface MatchPlayer {
   matchId: string;
   playerId: string;
   playerNameAsEntered: string;
+  teamId?: string | null;
   createdAt: string;
 }
 
@@ -23,6 +24,25 @@ export interface StatEvent {
   playerId: string;
   type: StatEventType;
   createdBy: string;
+  gameId?: string | null;
+  createdAt: string;
+}
+
+// Time avulso montado dentro de uma rodada (só existe nas rodadas "modo
+// novo" — rodadas antigas não têm nenhum registro de Team).
+export interface Team {
+  id: string;
+  matchId: string;
+  name: string;
+  createdAt: string;
+}
+
+// Partida: confronto entre 2 times de uma mesma rodada.
+export interface Game {
+  id: string;
+  matchId: string;
+  teamAId: string;
+  teamBId: string;
   createdAt: string;
 }
 

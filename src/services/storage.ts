@@ -1,5 +1,6 @@
 import {
   AuditLog,
+  Game,
   Match,
   MatchPlayer,
   PeladaSettings,
@@ -8,6 +9,7 @@ import {
   RankingItem,
   StatEvent,
   StatEventType,
+  Team,
 } from '../types/pelada';
 import { formatDisplayName, normalizePlayerName, parsePlayerListInput } from '../utils/normalization';
 import { DEFAULT_PELADA_LOGO } from '../assets/logo';
@@ -28,6 +30,11 @@ import {
   wipeRemoteData,
   subscribeToRemoteChanges,
   verifyAdminPinRemote,
+  pushTeam,
+  deleteRemoteTeam,
+  setTeamRoster,
+  pushGame,
+  deleteRemoteGame,
 } from './supabase';
 
 const STORAGE_KEY = 'gestao_pelada_data_v1';
@@ -52,7 +59,9 @@ export function clearSessionAdminPin(): void {
 export interface StorageData {
   players: Player[];
   matches: Match[];
+  teams: Team[];
   matchPlayers: MatchPlayer[];
+  games: Game[];
   statEvents: StatEvent[];
   auditLogs: AuditLog[];
   settings: PeladaSettings;
@@ -254,7 +263,9 @@ function getInitialSeedData(): StorageData {
   return {
     players,
     matches,
+    teams: [],
     matchPlayers,
+    games: [],
     statEvents,
     auditLogs,
     settings: {
@@ -298,7 +309,9 @@ class PeladaStore {
         this.data = {
           players: remote.players,
           matches: remote.matches,
+          teams: remote.teams,
           matchPlayers: remote.matchPlayers,
+          games: remote.games,
           statEvents: remote.statEvents,
           auditLogs: remote.auditLogs,
           settings: { ...this.data.settings, ...(remote.settings || {}) },
@@ -325,7 +338,9 @@ class PeladaStore {
     this.data = {
       players: remote.players,
       matches: remote.matches,
+      teams: remote.teams,
       matchPlayers: remote.matchPlayers,
+      games: remote.games,
       statEvents: remote.statEvents,
       auditLogs: remote.auditLogs,
       settings: { ...this.data.settings, ...(remote.settings || {}) },
@@ -355,6 +370,16 @@ class PeladaStore {
           // Migrate default pelada name if it's the old default
           if (!parsed.settings?.peladaName || parsed.settings.peladaName === 'Pelada dos Amigos') {
             parsed.settings = { ...(parsed.settings || {}), peladaName: 'Pelada do Real Roma F.C.' };
+            updated = true;
+          }
+          // Dados salvos antes dos Times/Partidas existirem não têm esses
+          // arrays — preenche vazio (essas rodadas continuam no modo clássico).
+          if (!Array.isArray(parsed.teams)) {
+            parsed.teams = [];
+            updated = true;
+          }
+          if (!Array.isArray(parsed.games)) {
+            parsed.games = [];
             updated = true;
           }
           if (updated) {
@@ -541,22 +566,22 @@ class PeladaStore {
     return { success: true, merged, targetDisplayName };
   }
 
-  // Create a new match with participant list
+  // Create a new match (rodada). rawPlayerList é opcional agora: o fluxo
+  // novo cria a rodada vazia e monta os times depois (createTeam). Se vier
+  // preenchido (modo clássico), continua linkando a lista direto na rodada,
+  // sem times — mantém compatibilidade com o fluxo antigo.
   public createMatch(params: {
     date: string;
     time?: string;
-    rawPlayerList: string;
+    rawPlayerList?: string;
     notes?: string;
     createdBy?: string;
     startImmediately?: boolean;
   }): { match: Match; count: number; error?: string } {
-    const parsed = parsePlayerListInput(params.rawPlayerList);
+    const rawPlayerList = params.rawPlayerList || '';
+    const parsed = parsePlayerListInput(rawPlayerList);
 
-    if (parsed.parsedPlayers.length === 0) {
-      return { match: null as unknown as Match, count: 0, error: 'Insira pelo menos um jogador.' };
-    }
-
-    if (parsed.duplicates.length > 0) {
+    if (rawPlayerList.trim() && parsed.duplicates.length > 0) {
       return {
         match: null as unknown as Match,
         count: 0,
@@ -578,7 +603,7 @@ class PeladaStore {
 
     this.data.matches.unshift(newMatch);
 
-    // Link each player
+    // Link each player (só roda de fato quando rawPlayerList foi passado)
     const newMatchPlayers: MatchPlayer[] = [];
     const newPlayers: Player[] = [];
     parsed.parsedPlayers.forEach(item => {
@@ -599,7 +624,9 @@ class PeladaStore {
       id: generateId('aud'),
       matchId,
       action: 'MATCH_CREATED',
-      details: `Rodada criada com ${parsed.parsedPlayers.length} jogadores para a data ${params.date}.`,
+      details: parsed.parsedPlayers.length > 0
+        ? `Rodada criada com ${parsed.parsedPlayers.length} jogadores para a data ${params.date}.`
+        : `Rodada criada para a data ${params.date}.`,
       performedBy: params.createdBy || 'Administrador',
       createdAt: new Date().toISOString(),
     };
@@ -611,7 +638,7 @@ class PeladaStore {
     // participantes (match_players tem FK pra ambos) — por isso aguarda os
     // dois antes de mandar os participantes.
     Promise.all([pushMatch(newMatch, pin), ...newPlayers.map(p => pushPlayer(p, pin))])
-      .then(() => pushMatchPlayers(newMatchPlayers, pin))
+      .then(() => (newMatchPlayers.length > 0 ? pushMatchPlayers(newMatchPlayers, pin) : Promise.resolve()))
       .then(() => pushAuditLog(auditEntry, pin));
     return { match: newMatch, count: parsed.parsedPlayers.length };
   }
@@ -678,6 +705,278 @@ class PeladaStore {
     });
   }
 
+  // -------------------------------------------------------------
+  // TIMES (modo novo da rodada — times avulsos, montados na hora)
+  // -------------------------------------------------------------
+
+  public getTeamsForMatch(matchId: string): Team[] {
+    return this.data.teams.filter(t => t.matchId === matchId);
+  }
+
+  public getTeamPlayerCount(teamId: string): number {
+    return this.data.matchPlayers.filter(mp => mp.teamId === teamId).length;
+  }
+
+  // Cria um time dentro de uma rodada e já monta o elenco (colar lista,
+  // mesma lógica de sempre). Máximo de 6 jogadores por time.
+  public createTeam(
+    matchId: string,
+    nameRaw: string,
+    rawPlayerList: string,
+    performedBy = 'Administrador'
+  ): { success: boolean; team?: Team; error?: string } {
+    const name = nameRaw.trim();
+    if (!name) {
+      return { success: false, error: 'Informe um nome para o time.' };
+    }
+
+    const parsed = parsePlayerListInput(rawPlayerList);
+    if (parsed.parsedPlayers.length === 0) {
+      return { success: false, error: 'Cole ou digite os nomes dos jogadores do time.' };
+    }
+    if (parsed.duplicates.length > 0) {
+      return { success: false, error: `Nomes duplicados na lista: ${parsed.duplicates.join(', ')}.` };
+    }
+    if (parsed.parsedPlayers.length > 6) {
+      return { success: false, error: 'Um time pode ter no máximo 6 jogadores.' };
+    }
+
+    const teamId = generateId('team');
+    const newTeam: Team = { id: teamId, matchId, name, createdAt: new Date().toISOString() };
+    this.data.teams.push(newTeam);
+
+    const newMatchPlayers: MatchPlayer[] = [];
+    const newPlayers: Player[] = [];
+    parsed.parsedPlayers.forEach(item => {
+      const { player, isNew } = this.findOrCreatePlayer(item.originalName);
+      if (isNew) newPlayers.push(player);
+      const mp: MatchPlayer = {
+        id: generateId('mp'),
+        matchId,
+        playerId: player.id,
+        playerNameAsEntered: item.originalName,
+        teamId,
+        createdAt: new Date().toISOString(),
+      };
+      this.data.matchPlayers.push(mp);
+      newMatchPlayers.push(mp);
+    });
+
+    const auditEntry: AuditLog = {
+      id: generateId('aud'),
+      matchId,
+      action: 'TEAM_CREATED',
+      details: `Time "${name}" criado com ${parsed.parsedPlayers.length} jogadores.`,
+      performedBy,
+      createdAt: new Date().toISOString(),
+    };
+    this.data.auditLogs.unshift(auditEntry);
+
+    this.persist(this.data);
+    const pin = this.getSessionPin();
+    // Mesma ordem do createMatch: time e novos jogadores precisam existir no
+    // banco antes do elenco (FK), por isso aguarda os dois primeiro.
+    Promise.all([pushTeam(newTeam, pin), ...newPlayers.map(p => pushPlayer(p, pin))])
+      .then(() => setTeamRoster(teamId, matchId, newMatchPlayers, pin))
+      .then(() => pushAuditLog(auditEntry, pin));
+
+    return { success: true, team: newTeam };
+  }
+
+  // Exclui um time. Jogadores perdem a participação naquele time, e
+  // partidas que envolviam esse time (e os lançamentos delas) somem junto.
+  public deleteTeam(teamId: string, performedBy = 'Administrador'): void {
+    const team = this.data.teams.find(t => t.id === teamId);
+    const teamName = team?.name || teamId;
+
+    const affectedGameIds = new Set(
+      this.data.games.filter(g => g.teamAId === teamId || g.teamBId === teamId).map(g => g.id)
+    );
+    this.data.games = this.data.games.filter(g => !affectedGameIds.has(g.id));
+    this.data.statEvents = this.data.statEvents.filter(ev => !ev.gameId || !affectedGameIds.has(ev.gameId));
+    this.data.matchPlayers = this.data.matchPlayers.filter(mp => mp.teamId !== teamId);
+    this.data.teams = this.data.teams.filter(t => t.id !== teamId);
+
+    const auditEntry: AuditLog = {
+      id: generateId('aud'),
+      matchId: team?.matchId || null,
+      action: 'TEAM_DELETED',
+      details: `Time "${teamName}" excluído.`,
+      performedBy,
+      createdAt: new Date().toISOString(),
+    };
+    this.data.auditLogs.unshift(auditEntry);
+
+    this.persist(this.data);
+    const pin = this.getSessionPin();
+    deleteRemoteTeam(teamId, pin);
+    pushAuditLog(auditEntry, pin);
+  }
+
+  // -------------------------------------------------------------
+  // PARTIDAS (confronto entre 2 times de uma mesma rodada)
+  // -------------------------------------------------------------
+
+  public getGameById(gameId: string): Game | undefined {
+    return this.data.games.find(g => g.id === gameId);
+  }
+
+  public getGamesForMatch(matchId: string): Array<{
+    game: Game;
+    teamA: Team | undefined;
+    teamB: Team | undefined;
+    teamAGoals: number;
+    teamBGoals: number;
+  }> {
+    return this.data.games
+      .filter(g => g.matchId === matchId)
+      .map(game => {
+        const teamA = this.data.teams.find(t => t.id === game.teamAId);
+        const teamB = this.data.teams.find(t => t.id === game.teamBId);
+        const goalEvents = this.data.statEvents.filter(ev => ev.gameId === game.id && ev.type === 'GOAL');
+
+        let teamAGoals = 0;
+        let teamBGoals = 0;
+        goalEvents.forEach(ev => {
+          const mp = this.data.matchPlayers.find(m => m.matchId === matchId && m.playerId === ev.playerId);
+          if (mp?.teamId === game.teamAId) teamAGoals++;
+          else if (mp?.teamId === game.teamBId) teamBGoals++;
+        });
+
+        return { game, teamA, teamB, teamAGoals, teamBGoals };
+      })
+      .sort((a, b) => b.game.createdAt.localeCompare(a.game.createdAt));
+  }
+
+  // Cria uma partida (dois times da mesma rodada). Sem ciclo próprio de
+  // iniciar/finalizar: já aceita lançamentos assim que criada, contanto que
+  // a rodada esteja EM ANDAMENTO (regra conferida no banco).
+  public createGame(
+    matchId: string,
+    teamAId: string,
+    teamBId: string,
+    performedBy = 'Administrador'
+  ): { success: boolean; game?: Game; error?: string } {
+    if (teamAId === teamBId) {
+      return { success: false, error: 'Escolha dois times diferentes.' };
+    }
+    const teamA = this.data.teams.find(t => t.id === teamAId && t.matchId === matchId);
+    const teamB = this.data.teams.find(t => t.id === teamBId && t.matchId === matchId);
+    if (!teamA || !teamB) {
+      return { success: false, error: 'Times inválidos para esta rodada.' };
+    }
+
+    const newGame: Game = {
+      id: generateId('game'),
+      matchId,
+      teamAId,
+      teamBId,
+      createdAt: new Date().toISOString(),
+    };
+    this.data.games.push(newGame);
+
+    const auditEntry: AuditLog = {
+      id: generateId('aud'),
+      matchId,
+      action: 'GAME_CREATED',
+      details: `Partida criada: "${teamA.name}" x "${teamB.name}".`,
+      performedBy,
+      createdAt: new Date().toISOString(),
+    };
+    this.data.auditLogs.unshift(auditEntry);
+
+    this.persist(this.data);
+    const pin = this.getSessionPin();
+    pushGame(newGame, pin).then(() => pushAuditLog(auditEntry, pin));
+
+    return { success: true, game: newGame };
+  }
+
+  public deleteGame(gameId: string, performedBy = 'Administrador'): void {
+    const game = this.data.games.find(g => g.id === gameId);
+    this.data.statEvents = this.data.statEvents.filter(ev => ev.gameId !== gameId);
+    this.data.games = this.data.games.filter(g => g.id !== gameId);
+
+    const auditEntry: AuditLog = {
+      id: generateId('aud'),
+      matchId: game?.matchId || null,
+      action: 'GAME_DELETED',
+      details: `Partida excluída junto com seus lançamentos.`,
+      performedBy,
+      createdAt: new Date().toISOString(),
+    };
+    this.data.auditLogs.unshift(auditEntry);
+
+    this.persist(this.data);
+    const pin = this.getSessionPin();
+    deleteRemoteGame(gameId, pin);
+    pushAuditLog(auditEntry, pin);
+  }
+
+  // Jogadores dos 2 times de uma partida, com gols/assistências NESSA
+  // partida especificamente (não da rodada inteira).
+  public getGamePlayers(gameId: string): {
+    teamA: Team | undefined;
+    teamB: Team | undefined;
+    teamAPlayers: Array<{ player: Player; goals: number; assists: number }>;
+    teamBPlayers: Array<{ player: Player; goals: number; assists: number }>;
+  } {
+    const game = this.getGameById(gameId);
+    if (!game) return { teamA: undefined, teamB: undefined, teamAPlayers: [], teamBPlayers: [] };
+
+    const teamA = this.data.teams.find(t => t.id === game.teamAId);
+    const teamB = this.data.teams.find(t => t.id === game.teamBId);
+    const events = this.data.statEvents.filter(ev => ev.gameId === gameId);
+
+    const buildRows = (teamId: string) => {
+      const roster = this.data.matchPlayers.filter(mp => mp.teamId === teamId);
+      return roster
+        .map(mp => {
+          const player = this.getPlayerById(mp.playerId) || {
+            id: mp.playerId,
+            displayName: mp.playerNameAsEntered,
+            normalizedName: normalizePlayerName(mp.playerNameAsEntered),
+            createdAt: mp.createdAt,
+          };
+          const goals = events.filter(ev => ev.playerId === mp.playerId && ev.type === 'GOAL').length;
+          const assists = events.filter(ev => ev.playerId === mp.playerId && ev.type === 'ASSIST').length;
+          return { player, goals, assists };
+        })
+        .sort((a, b) => a.player.displayName.localeCompare(b.player.displayName));
+    };
+
+    return {
+      teamA,
+      teamB,
+      teamAPlayers: buildRows(game.teamAId),
+      teamBPlayers: buildRows(game.teamBId),
+    };
+  }
+
+  // Lança gol/assistência dentro de uma partida específica.
+  public addGameStatEvent(params: {
+    gameId: string;
+    matchId: string;
+    playerId: string;
+    type: StatEventType;
+    createdBy?: string;
+  }): StatEvent {
+    const newEvent: StatEvent = {
+      id: generateId('ev'),
+      matchId: params.matchId,
+      playerId: params.playerId,
+      type: params.type,
+      createdBy: params.createdBy || 'Administrador',
+      gameId: params.gameId,
+      createdAt: new Date().toISOString(),
+    };
+
+    this.data.statEvents.push(newEvent);
+    this.persist(this.data);
+    pushStatEvent(newEvent, this.getSessionPin());
+    return newEvent;
+  }
+
   // Record a stat event (+1 GOL or +1 ASSIST)
   public addStatEvent(params: {
     matchId: string;
@@ -705,11 +1004,17 @@ class PeladaStore {
     matchId: string;
     playerId: string;
     type: StatEventType;
+    gameId?: string;
     performedBy?: string;
   }): boolean {
     const index = [...this.data.statEvents]
       .reverse()
-      .findIndex(ev => ev.matchId === params.matchId && ev.playerId === params.playerId && ev.type === params.type);
+      .findIndex(ev =>
+        ev.matchId === params.matchId &&
+        ev.playerId === params.playerId &&
+        ev.type === params.type &&
+        (params.gameId === undefined || ev.gameId === params.gameId)
+      );
 
     if (index === -1) return false;
 
@@ -1098,7 +1403,9 @@ class PeladaStore {
     const empty: StorageData = {
       players: [],
       matches: [],
+      teams: [],
       matchPlayers: [],
+      games: [],
       statEvents: [],
       auditLogs: [],
       settings: this.data.settings,
