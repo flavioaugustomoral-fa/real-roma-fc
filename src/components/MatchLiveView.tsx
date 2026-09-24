@@ -263,7 +263,6 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
           <div className="flex items-center gap-1 text-xs text-slate-400 font-mono">
             <Clock className="w-3.5 h-3.5 text-slate-500" />
             <span>{match.date.split('-').reverse().join('/')}</span>
-            {match.time && <span>às {match.time}</span>}
           </div>
         </div>
 
@@ -271,7 +270,7 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
         <div className="grid grid-cols-3 gap-2 py-2 px-3 bg-slate-950/70 rounded-xl border border-slate-800/80 mb-3 text-center">
           <div>
             <span className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-              Gols da Rodada
+              Gols
             </span>
             <span className="text-xl sm:text-2xl font-black text-emerald-400">
               ⚽ {matchTotals.totalGoals}
@@ -508,7 +507,7 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-black uppercase tracking-wider text-slate-300 flex items-center gap-2">
                 <Users className="w-4 h-4 text-emerald-400" />
-                <span>Times ({teams.length})</span>
+                <span>Times</span>
               </h3>
               {isAdmin && (
                 <button
