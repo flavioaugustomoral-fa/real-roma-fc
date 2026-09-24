@@ -303,7 +303,7 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
         )}
       </div>
 
-      {/* Ranking List Table / Cards */}
+      {/* Ranking List Table / Cards — mesmo estilo de linha da tela inicial */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
         {displayedItems.length === 0 ? (
           <div className="text-center py-12 p-6">
@@ -320,56 +320,34 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
             )}
           </div>
         ) : (
-          <div className="divide-y divide-slate-800/80">
+          <div className="p-3 space-y-2">
             {displayedItems.map((item) => {
               return (
                 <button
                   key={item.player.id}
                   onClick={() => onSelectPlayer(item.player.id)}
                   id={`ranking-row-${item.player.id}`}
-                  className="w-full px-3.5 sm:px-4 py-3.5 flex items-center justify-between gap-3 text-left hover:bg-slate-800/60 active:bg-slate-800 transition group"
+                  className="w-full flex items-center justify-between p-2 rounded-xl bg-slate-950/60 hover:bg-slate-800/60 transition text-left group"
                 >
-                  {/* Left: Position & Player */}
-                  <div className="flex items-center gap-3 min-w-0">
-                    {/* Position Badge — mesmo estilo da tela inicial */}
+                  <div className="flex items-center gap-2.5 min-w-0">
                     <span
-                      className={`w-8 h-8 rounded-xl text-sm font-black flex items-center justify-center shrink-0 ${getRankBadgeClass(item.position - 1)}`}
+                      className={`w-6 h-6 rounded-lg text-xs font-black flex items-center justify-center ${getRankBadgeClass(item.position - 1)}`}
                     >
                       {item.position}º
                     </span>
-
-                    {/* Player Info */}
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-extrabold text-sm sm:text-base text-white group-hover:text-emerald-400 transition truncate">
-                          {item.player.displayName}
-                        </span>
-                      </div>
-                      {item.matchesPlayed > 0 && (
-                        <span className="text-[11px] text-slate-400 flex items-center gap-2">
-                          <span>{item.matchesPlayed} {item.matchesPlayed === 1 ? 'rodada' : 'rodadas'}</span>
-                          <span className="text-slate-600">•</span>
-                          <span>Média {item.average.toFixed(2)} / rodada</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Right: Score Count */}
-                  <div className="text-right shrink-0">
-                    <span
-                      className={`text-lg sm:text-xl font-black ${
-                        rankingType === 'GOAL' ? 'text-emerald-400' : 'text-blue-400'
-                      }`}
-                    >
-                      {item.count}
-                    </span>
-                    <span className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-                      {rankingType === 'GOAL'
-                        ? item.count === 1 ? 'gol' : 'gols'
-                        : item.count === 1 ? 'assist' : 'assists'}
+                    <span className="text-sm font-bold text-white group-hover:text-emerald-400 transition truncate uppercase">
+                      {item.player.displayName}
                     </span>
                   </div>
+                  <span
+                    className={`text-sm font-black shrink-0 ${
+                      rankingType === 'GOAL' ? 'text-emerald-400' : 'text-blue-400'
+                    }`}
+                  >
+                    {item.count} {rankingType === 'GOAL'
+                      ? item.count === 1 ? 'gol' : 'gols'
+                      : item.count === 1 ? 'assist' : 'assists'}
+                  </span>
                 </button>
               );
             })}
