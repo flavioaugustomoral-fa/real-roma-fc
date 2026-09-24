@@ -315,8 +315,6 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
         ) : (
           <div className="divide-y divide-slate-800/80">
             {displayedItems.map((item) => {
-              const isFirst = item.position === 1;
-
               return (
                 <button
                   key={item.player.id}
@@ -339,11 +337,6 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
                         <span className="font-extrabold text-sm sm:text-base text-white group-hover:text-emerald-400 transition truncate">
                           {item.player.displayName}
                         </span>
-                        {isFirst && (
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/20 shrink-0">
-                            Líder
-                          </span>
-                        )}
                       </div>
                       <span className="text-[11px] text-slate-400 flex items-center gap-2">
                         <span>{item.matchesPlayed} {item.matchesPlayed === 1 ? 'rodada' : 'rodadas'}</span>
