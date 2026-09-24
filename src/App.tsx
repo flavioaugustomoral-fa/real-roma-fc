@@ -108,7 +108,6 @@ export default function App() {
         {currentTab === 'home' && (
           <HomeView
             onNavigate={(tab) => setCurrentTab(tab)}
-            onOpenCreateMatch={() => setIsCreateMatchOpen(true)}
             onSelectPlayer={(id) => setSelectedPlayerId(id)}
           />
         )}

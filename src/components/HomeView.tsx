@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import {
   Play,
-  Plus,
   ChevronRight,
   Instagram,
 } from 'lucide-react';
@@ -11,16 +10,14 @@ import { getEffectiveLogoUrl, DEFAULT_PELADA_LOGO } from '../assets/logo';
 
 interface HomeViewProps {
   onNavigate: (tab: NavTab) => void;
-  onOpenCreateMatch: () => void;
   onSelectPlayer: (playerId: string) => void;
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
   onNavigate,
-  onOpenCreateMatch,
   onSelectPlayer,
 }) => {
-  const { data, settings, activeMatch, store, isAdmin } = usePeladaStore();
+  const { data, settings, activeMatch, store } = usePeladaStore();
 
   const currentSeason = useMemo(() => store.getCurrentSeason(), [store, data]);
   const seasonLabel = currentSeason?.label || 'Temporada';
@@ -86,19 +83,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 <span>@{settings.instagramHandle}</span>
               </a>
             )}
-
-            <div className="mt-4 flex flex-wrap items-center justify-center sm:justify-start gap-2">
-              {isAdmin && (
-                <button
-                  onClick={onOpenCreateMatch}
-                  id="btn-home-quick-new-match"
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 border border-slate-700 transition active:scale-95"
-                >
-                  <Plus className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Criar Nova Rodada</span>
-                </button>
-              )}
-            </div>
           </div>
         </div>
       </div>
