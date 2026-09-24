@@ -14,8 +14,6 @@ import {
   Minus,
   AlertTriangle,
   CalendarClock,
-  Goal,
-  Footprints,
 } from 'lucide-react';
 import { Match, StatEventType } from '../types/pelada';
 import { usePeladaStore } from '../hooks/usePeladaStore';
@@ -317,10 +315,10 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                 <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
                   <div className="flex items-center gap-3">
                     <span className="flex items-center gap-1 font-semibold text-emerald-400">
-                      <Goal className="w-3.5 h-3.5" /> {totalG} {totalG === 1 ? 'gol' : 'gols'}
+                      ⚽ {totalG} {totalG === 1 ? 'gol' : 'gols'}
                     </span>
                     <span className="flex items-center gap-1 font-semibold text-blue-400">
-                      <Footprints className="w-3.5 h-3.5" /> {totalA} {totalA === 1 ? 'assistência' : 'assistências'}
+                      👟 {totalA} {totalA === 1 ? 'assistência' : 'assistências'}
                     </span>
                     <span className="flex items-center gap-1 text-slate-400">
                       <Users className="w-3.5 h-3.5" />
@@ -381,15 +379,11 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
             <div className="grid grid-cols-3 gap-2 py-2 px-3 bg-slate-950/70 rounded-xl border border-slate-800/80 my-3 text-center shrink-0">
               <div>
                 <span className="block text-[10px] font-semibold text-slate-400 uppercase">Gols</span>
-                <span className="inline-flex items-center gap-1 text-lg font-black text-emerald-400">
-                  <Goal className="w-4 h-4" /> {selectedMatchTotals.goals}
-                </span>
+                <span className="text-lg font-black text-emerald-400">⚽ {selectedMatchTotals.goals}</span>
               </div>
               <div className="border-x border-slate-800">
                 <span className="block text-[10px] font-semibold text-slate-400 uppercase">Assistências</span>
-                <span className="inline-flex items-center gap-1 text-lg font-black text-blue-400">
-                  <Footprints className="w-4 h-4" /> {selectedMatchTotals.assists}
-                </span>
+                <span className="text-lg font-black text-blue-400">👟 {selectedMatchTotals.assists}</span>
               </div>
               <div>
                 <span className="block text-[10px] font-semibold text-slate-400 uppercase">Jogadores</span>
@@ -534,9 +528,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                   <div className="flex items-center gap-2">
                     {/* Goals display & correction */}
                     <div className="flex items-center gap-1 bg-emerald-950/40 border border-emerald-800/50 px-2 py-1 rounded-lg">
-                      <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400">
-                        <Goal className="w-3 h-3" /> {goals}
-                      </span>
+                      <span className="text-xs font-bold text-emerald-400">⚽ {goals}</span>
                       {isAdmin && (
                         <div className="flex items-center ml-1 gap-0.5">
                           <button
@@ -561,9 +553,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
 
                     {/* Assists display & correction */}
                     <div className="flex items-center gap-1 bg-blue-950/40 border border-blue-800/50 px-2 py-1 rounded-lg">
-                      <span className="inline-flex items-center gap-1 text-xs font-bold text-blue-400">
-                        <Footprints className="w-3 h-3" /> {assists}
-                      </span>
+                      <span className="text-xs font-bold text-blue-400">👟 {assists}</span>
                       {isAdmin && (
                         <div className="flex items-center ml-1 gap-0.5">
                           <button

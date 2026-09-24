@@ -8,8 +8,6 @@ import {
   Flame,
   Target,
   Search,
-  Goal,
-  Footprints,
 } from 'lucide-react';
 import { StatEventType } from '../types/pelada';
 import { usePeladaStore } from '../hooks/usePeladaStore';
@@ -118,7 +116,7 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Goal className="w-4 h-4" />
+            <span className="text-base">⚽</span>
             <span className="tracking-wide uppercase">Ranking de Gols</span>
           </button>
 
@@ -131,7 +129,7 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Footprints className="w-4 h-4" />
+            <span className="text-base">👟</span>
             <span className="tracking-wide uppercase">Ranking de Assistências</span>
           </button>
         </div>
@@ -279,9 +277,8 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
       <div className="flex items-center justify-between px-1">
         <div>
           <h3 className="text-xs sm:text-sm font-black text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-            {rankingType === 'GOAL' ? <Goal className="w-3.5 h-3.5 shrink-0" /> : <Footprints className="w-3.5 h-3.5 shrink-0" />}
             <span>
-              {rankingType === 'GOAL' ? 'Artilharia' : 'Garçons (Assistências)'} — {rankingData.scopeLabel}
+              {rankingType === 'GOAL' ? '⚽ Artilharia' : '👟 Garçons (Assistências)'} — {rankingData.scopeLabel}
             </span>
           </h3>
           <span className="text-[11px] text-slate-500">

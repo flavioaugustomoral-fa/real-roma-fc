@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { X, Calendar, Activity, Pencil, Check, AlertTriangle, Trophy, Goal, Footprints } from 'lucide-react';
+import { X, Calendar, Activity, Pencil, Check, AlertTriangle, Trophy } from 'lucide-react';
 import { usePeladaStore } from '../hooks/usePeladaStore';
 import { LaurelWreathIcon } from './icons/LaurelWreathIcon';
 
@@ -150,8 +150,8 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({ playerId, onClose }) =
             <span className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
               Total Gols
             </span>
-            <span className="inline-flex items-center gap-1 text-2xl font-black text-emerald-400">
-              <Goal className="w-5 h-5" /> {summary.goals}
+            <span className="text-2xl font-black text-emerald-400">
+              ⚽ {summary.goals}
             </span>
           </div>
 
@@ -159,8 +159,8 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({ playerId, onClose }) =
             <span className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
               Total Assists
             </span>
-            <span className="inline-flex items-center gap-1 text-2xl font-black text-blue-400">
-              <Footprints className="w-5 h-5" /> {summary.assists}
+            <span className="text-2xl font-black text-blue-400">
+              👟 {summary.assists}
             </span>
           </div>
 
@@ -258,11 +258,11 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({ playerId, onClose }) =
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <span className="inline-flex items-center gap-1 font-bold text-emerald-400">
-                      <Goal className="w-3.5 h-3.5" /> {h.goals} {h.goals === 1 ? 'gol' : 'gols'}
+                    <span className="font-bold text-emerald-400">
+                      ⚽ {h.goals} {h.goals === 1 ? 'gol' : 'gols'}
                     </span>
-                    <span className="inline-flex items-center gap-1 font-bold text-blue-400">
-                      <Footprints className="w-3.5 h-3.5" /> {h.assists} {h.assists === 1 ? 'assist' : 'assists'}
+                    <span className="font-bold text-blue-400">
+                      👟 {h.assists} {h.assists === 1 ? 'assist' : 'assists'}
                     </span>
                   </div>
                 </div>

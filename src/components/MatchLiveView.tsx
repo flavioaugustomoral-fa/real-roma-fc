@@ -14,8 +14,6 @@ import {
   X,
   Trophy,
   Pencil,
-  Goal,
-  Footprints,
 } from 'lucide-react';
 import { Match } from '../types/pelada';
 import { usePeladaStore } from '../hooks/usePeladaStore';
@@ -161,9 +159,9 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
     });
 
     if (type === 'GOAL') {
-      triggerToast(`Gol registrado para ${playerName}!`, 'goal');
+      triggerToast(`⚽ Gol registrado para ${playerName}!`, 'goal');
     } else {
-      triggerToast(`Assistência registrada para ${playerName}!`, 'assist');
+      triggerToast(`👟 Assistência registrada para ${playerName}!`, 'assist');
     }
   };
 
@@ -274,16 +272,16 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
             <span className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
               Gols
             </span>
-            <span className="inline-flex items-center gap-1 text-xl sm:text-2xl font-black text-emerald-400">
-              <Goal className="w-5 h-5 sm:w-6 sm:h-6" /> {matchTotals.totalGoals}
+            <span className="text-xl sm:text-2xl font-black text-emerald-400">
+              ⚽ {matchTotals.totalGoals}
             </span>
           </div>
           <div className="border-x border-slate-800">
             <span className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
               Assistências
             </span>
-            <span className="inline-flex items-center gap-1 text-xl sm:text-2xl font-black text-blue-400">
-              <Footprints className="w-5 h-5 sm:w-6 sm:h-6" /> {matchTotals.totalAssists}
+            <span className="text-xl sm:text-2xl font-black text-blue-400">
+              👟 {matchTotals.totalAssists}
             </span>
           </div>
           <div>
@@ -407,10 +405,10 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
                       {/* Summary badges */}
                       <div className="flex items-center gap-1.5">
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-black bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                          <Goal className="w-3.5 h-3.5" /> {goals} {goals === 1 ? 'gol' : 'gols'}
+                          ⚽ {goals} {goals === 1 ? 'gol' : 'gols'}
                         </span>
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-black bg-blue-500/15 text-blue-400 border border-blue-500/30">
-                          <Footprints className="w-3.5 h-3.5" /> {assists} {assists === 1 ? 'assist' : 'assists'}
+                          👟 {assists} {assists === 1 ? 'assist' : 'assists'}
                         </span>
                       </div>
                     </div>
@@ -436,7 +434,7 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
                             id={`btn-add-goal-${player.id}`}
                             className="flex-1 min-h-[52px] rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 active:scale-[0.97] transition-all text-white font-extrabold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/60 border border-emerald-400/30"
                           >
-                            <Goal className="w-5 h-5" />
+                            <span className="text-xl">⚽</span>
                             <span className="tracking-wide">+1 GOL</span>
                           </button>
                         </div>
@@ -459,7 +457,7 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
                             id={`btn-add-assist-${player.id}`}
                             className="flex-1 min-h-[52px] rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 active:scale-[0.97] transition-all text-white font-extrabold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg shadow-blue-950/60 border border-blue-400/30"
                           >
-                            <Footprints className="w-5 h-5" />
+                            <span className="text-xl">👟</span>
                             <span className="tracking-wide">+1 ASSIST</span>
                           </button>
                         </div>
@@ -634,7 +632,7 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
               <div className="flex items-center gap-2 pb-2 border-b border-slate-800/80 mb-3">
-                <Goal className="w-4 h-4 text-emerald-400" />
+                <span className="text-lg">⚽</span>
                 <h3 className="text-xs font-black uppercase tracking-wider text-slate-200">
                   Artilharia da Rodada
                 </h3>
@@ -669,7 +667,7 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
 
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
               <div className="flex items-center gap-2 pb-2 border-b border-slate-800/80 mb-3">
-                <Footprints className="w-4 h-4 text-blue-400" />
+                <span className="text-lg">👟</span>
                 <h3 className="text-xs font-black uppercase tracking-wider text-slate-200">
                   Garçons da Rodada
                 </h3>
@@ -786,17 +784,13 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
                 <span>Participantes oficiais:</span>
                 <span className="font-bold text-white">{matchTotals.totalPlayers}</span>
               </div>
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between">
                 <span>Total de gols:</span>
-                <span className="inline-flex items-center gap-1 font-bold text-emerald-400">
-                  <Goal className="w-3.5 h-3.5" /> {matchTotals.totalGoals}
-                </span>
+                <span className="font-bold text-emerald-400">⚽ {matchTotals.totalGoals}</span>
               </div>
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between">
                 <span>Total de assistências:</span>
-                <span className="inline-flex items-center gap-1 font-bold text-blue-400">
-                  <Footprints className="w-3.5 h-3.5" /> {matchTotals.totalAssists}
-                </span>
+                <span className="font-bold text-blue-400">👟 {matchTotals.totalAssists}</span>
               </div>
             </div>
 
