@@ -116,12 +116,11 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-black uppercase tracking-wider bg-white/30 px-2 py-0.5 rounded-full">
-                  Rodada Ao Vivo Agora
+                  Rodada Em Andamento
                 </span>
-                <span className="text-xs font-mono opacity-90">{activeMatch.time || ''}</span>
               </div>
               <h3 className="text-base font-black tracking-tight mt-0.5">
-                Toque aqui para registrar +1 GOL ou ASSISTÊNCIA!
+                Toque aqui para acompanhar
               </h3>
             </div>
           </div>
