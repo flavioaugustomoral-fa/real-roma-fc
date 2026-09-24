@@ -6,7 +6,8 @@ import {
   ChevronUp,
   User,
   Flame,
-  Target
+  Target,
+  Search,
 } from 'lucide-react';
 import { StatEventType } from '../types/pelada';
 import { usePeladaStore } from '../hooks/usePeladaStore';
@@ -33,6 +34,9 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
 
   // Show full list beyond Top 10 toggle
   const [showFullList, setShowFullList] = useState(false);
+
+  // Busca por nome do jogador
+  const [searchQuery, setSearchQuery] = useState('');
 
   const availableYears = useMemo(() => store.getAvailableYears(), [store, data]);
 
@@ -70,15 +74,22 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
     });
   }, [store, rankingType, scope, selectedMonth, selectedYear, selectedMatchId, selectedSeasonId, data]);
 
+  // Filtra pelo nome digitado — quando há busca, ignora o corte de Top 10 e
+  // mostra todos os jogadores que baterem, não só os melhores colocados.
+  const filteredRankingItems = useMemo(() => {
+    if (!searchQuery.trim()) return rankingData.items;
+    const q = searchQuery.toLowerCase().trim();
+    return rankingData.items.filter(item => item.player.displayName.toLowerCase().includes(q));
+  }, [rankingData.items, searchQuery]);
+
   // Section 27: Top 10 by default
   const displayedItems = useMemo(() => {
-    if (showFullList) {
-      return rankingData.items;
-    }
+    if (searchQuery.trim()) return filteredRankingItems;
+    if (showFullList) return rankingData.items;
     return rankingData.items.slice(0, 10);
-  }, [rankingData.items, showFullList]);
+  }, [rankingData.items, filteredRankingItems, showFullList, searchQuery]);
 
-  const hasMoreThan10 = rankingData.items.length > 10;
+  const hasMoreThan10 = !searchQuery.trim() && rankingData.items.length > 10;
 
   return (
     <div className="space-y-4 pb-20">
@@ -238,6 +249,27 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
         </div>
       </div>
 
+      {/* Busca por nome do jogador */}
+      <div className="relative">
+        <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Buscar jogador pelo nome..."
+          id="input-search-ranking-player"
+          className="w-full text-sm pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 transition"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400 hover:text-white"
+          >
+            Limpar
+          </button>
+        )}
+      </div>
+
       {/* Ranking Title & Filter Label */}
       <div className="flex items-center justify-between px-1">
         <div>
@@ -247,7 +279,9 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
             </span>
           </h3>
           <span className="text-[11px] text-slate-500">
-            {rankingData.totalCount > 10
+            {searchQuery.trim()
+              ? `${displayedItems.length} de ${rankingData.totalCount} jogadores encontrados`
+              : rankingData.totalCount > 10
               ? `Exibindo ${displayedItems.length} de ${rankingData.totalCount} jogadores`
               : `${rankingData.totalCount} jogadores classificados`}
           </span>
@@ -261,15 +295,19 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
 
       {/* Ranking List Table / Cards */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-        {rankingData.items.length === 0 ? (
+        {displayedItems.length === 0 ? (
           <div className="text-center py-12 p-6">
             <Trophy className="w-8 h-8 text-slate-600 mx-auto mb-2" />
             <p className="text-sm text-slate-400 font-medium">
-              Nenhuma estatística registrada no período selecionado.
+              {searchQuery.trim()
+                ? `Nenhum jogador encontrado com "${searchQuery}".`
+                : 'Nenhuma estatística registrada no período selecionado.'}
             </p>
-            <p className="text-xs text-slate-500 mt-1">
-              Finalize uma rodada para que seus resultados apareçam aqui.
-            </p>
+            {!searchQuery.trim() && (
+              <p className="text-xs text-slate-500 mt-1">
+                Finalize uma rodada para que seus resultados apareçam aqui.
+              </p>
+            )}
           </div>
         ) : (
           <div className="divide-y divide-slate-800/80">
