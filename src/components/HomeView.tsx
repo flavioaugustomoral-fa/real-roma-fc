@@ -7,6 +7,7 @@ import {
 import { usePeladaStore } from '../hooks/usePeladaStore';
 import { NavTab } from './BottomNav';
 import { getEffectiveLogoUrl, DEFAULT_PELADA_LOGO } from '../assets/logo';
+import { AssistBootIcon } from './icons/AssistBootIcon';
 
 interface HomeViewProps {
   onNavigate: (tab: NavTab) => void;
@@ -166,7 +167,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
           <div className="flex items-center justify-between pb-2 border-b border-slate-800/80 mb-3">
             <div className="flex items-center gap-2">
-              <span className="text-lg">👟</span>
+              <AssistBootIcon className="w-5 h-5" />
               <h3 className="text-xs font-black uppercase tracking-wider text-slate-200">
                 Garçons da {seasonLabel}
               </h3>

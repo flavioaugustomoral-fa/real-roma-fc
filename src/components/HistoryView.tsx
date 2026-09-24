@@ -18,6 +18,7 @@ import {
 import { Match, StatEventType } from '../types/pelada';
 import { usePeladaStore } from '../hooks/usePeladaStore';
 import { LaurelWreathIcon } from './icons/LaurelWreathIcon';
+import { AssistBootIcon } from './icons/AssistBootIcon';
 
 interface HistoryViewProps {
   onSelectMatchToPlay?: (match: Match) => void;
@@ -318,7 +319,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                       ⚽ {totalG} {totalG === 1 ? 'gol' : 'gols'}
                     </span>
                     <span className="flex items-center gap-1 font-semibold text-blue-400">
-                      👟 {totalA} {totalA === 1 ? 'assistência' : 'assistências'}
+                      <AssistBootIcon className="w-3.5 h-3.5" /> {totalA} {totalA === 1 ? 'assistência' : 'assistências'}
                     </span>
                     <span className="flex items-center gap-1 text-slate-400">
                       <Users className="w-3.5 h-3.5" />
@@ -383,7 +384,9 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
               </div>
               <div className="border-x border-slate-800">
                 <span className="block text-[10px] font-semibold text-slate-400 uppercase">Assistências</span>
-                <span className="text-lg font-black text-blue-400">👟 {selectedMatchTotals.assists}</span>
+                <span className="inline-flex items-center gap-1 text-lg font-black text-blue-400">
+                  <AssistBootIcon className="w-4 h-4" /> {selectedMatchTotals.assists}
+                </span>
               </div>
               <div>
                 <span className="block text-[10px] font-semibold text-slate-400 uppercase">Jogadores</span>
@@ -553,7 +556,9 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
 
                     {/* Assists display & correction */}
                     <div className="flex items-center gap-1 bg-blue-950/40 border border-blue-800/50 px-2 py-1 rounded-lg">
-                      <span className="text-xs font-bold text-blue-400">👟 {assists}</span>
+                      <span className="inline-flex items-center gap-1 text-xs font-bold text-blue-400">
+                        <AssistBootIcon className="w-3.5 h-3.5" /> {assists}
+                      </span>
                       {isAdmin && (
                         <div className="flex items-center ml-1 gap-0.5">
                           <button

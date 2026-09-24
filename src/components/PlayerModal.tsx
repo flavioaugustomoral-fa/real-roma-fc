@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { X, Calendar, Activity, Pencil, Check, AlertTriangle, Trophy } from 'lucide-react';
 import { usePeladaStore } from '../hooks/usePeladaStore';
 import { LaurelWreathIcon } from './icons/LaurelWreathIcon';
+import { AssistBootIcon } from './icons/AssistBootIcon';
 
 interface PlayerModalProps {
   playerId: string | null;
@@ -159,8 +160,8 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({ playerId, onClose }) =
             <span className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
               Total Assists
             </span>
-            <span className="text-2xl font-black text-blue-400">
-              👟 {summary.assists}
+            <span className="inline-flex items-center gap-1 text-2xl font-black text-blue-400">
+              <AssistBootIcon className="w-6 h-6" /> {summary.assists}
             </span>
           </div>
 
@@ -261,8 +262,8 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({ playerId, onClose }) =
                     <span className="font-bold text-emerald-400">
                       ⚽ {h.goals} {h.goals === 1 ? 'gol' : 'gols'}
                     </span>
-                    <span className="font-bold text-blue-400">
-                      👟 {h.assists} {h.assists === 1 ? 'assist' : 'assists'}
+                    <span className="inline-flex items-center gap-1 font-bold text-blue-400">
+                      <AssistBootIcon className="w-3.5 h-3.5" /> {h.assists} {h.assists === 1 ? 'assist' : 'assists'}
                     </span>
                   </div>
                 </div>
