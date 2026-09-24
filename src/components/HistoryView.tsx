@@ -150,34 +150,27 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
     <div className="space-y-4 pb-20">
       {/* Header */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            {(selectedSeason || isOrphanView) ? (
-              <button
-                onClick={() => setSelectedSeasonId(null)}
-                className="flex items-center gap-1.5 text-xs font-bold text-emerald-400 hover:text-emerald-300 transition mb-1.5"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-                <span>Voltar às Temporadas</span>
-              </button>
-            ) : null}
-            <h2 className="text-lg font-black text-white tracking-tight flex items-center gap-2 truncate">
-              <Calendar className="w-5 h-5 text-emerald-400 shrink-0" />
-              <span className="truncate">
-                {selectedSeason ? selectedSeason.label : isOrphanView ? 'Sem Temporada' : 'Histórico de Rodadas'}
-              </span>
-            </h2>
-            <p className="text-xs text-slate-400">
-              {selectedSeason || isOrphanView
-                ? 'Rodadas desta temporada, das mais recentes para as mais antigas'
-                : 'Escolha uma temporada para ver as rodadas dela'}
-            </p>
-          </div>
-          <span className="text-xs font-mono font-bold bg-slate-800 px-2.5 py-1 rounded-lg text-slate-300 shrink-0">
+        <div className="min-w-0">
+          {(selectedSeason || isOrphanView) ? (
+            <button
+              onClick={() => setSelectedSeasonId(null)}
+              className="flex items-center gap-1.5 text-xs font-bold text-emerald-400 hover:text-emerald-300 transition mb-1.5"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+              <span>Voltar às Temporadas</span>
+            </button>
+          ) : null}
+          <h2 className="text-lg font-black text-white tracking-tight flex items-center gap-2 truncate">
+            <Calendar className="w-5 h-5 text-emerald-400 shrink-0" />
+            <span className="truncate">
+              {selectedSeason ? selectedSeason.label : isOrphanView ? 'Sem Temporada' : 'Histórico de Rodadas'}
+            </span>
+          </h2>
+          <p className="text-xs text-slate-400">
             {selectedSeason || isOrphanView
-              ? `${matchesToShow.length} ${matchesToShow.length === 1 ? 'rodada' : 'rodadas'}`
-              : `${matches.length} ${matches.length === 1 ? 'partida' : 'partidas'}`}
-          </span>
+              ? 'Rodadas desta temporada, das mais recentes para as mais antigas'
+              : 'Escolha uma temporada para ver as rodadas dela'}
+          </p>
         </div>
       </div>
 
