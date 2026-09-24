@@ -70,9 +70,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
             }}
           />
           <div className="flex-1 min-w-0">
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 mb-1">
-              Futebol & Estatísticas
-            </span>
             <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
               {settings.peladaName || 'Pelada do Real Roma F.C.'}
             </h2>
@@ -83,9 +80,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 target="_blank"
                 rel="noopener noreferrer"
                 id="link-home-instagram"
-                className="inline-flex items-center gap-1.5 mt-1.5 text-xs font-bold text-pink-400 hover:text-pink-300 transition"
+                className="inline-flex items-center gap-1.5 mt-1.5 text-xs font-bold text-white hover:text-slate-200 transition"
               >
-                <Instagram className="w-3.5 h-3.5" />
+                <Instagram className="w-3.5 h-3.5 text-pink-400" />
                 <span>@{settings.instagramHandle}</span>
               </a>
             )}
