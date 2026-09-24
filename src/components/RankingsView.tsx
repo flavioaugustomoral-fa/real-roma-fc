@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { StatEventType } from '../types/pelada';
 import { usePeladaStore } from '../hooks/usePeladaStore';
+import { normalizePlayerName } from '../utils/normalization';
 
 interface RankingsViewProps {
   onSelectPlayer: (playerId: string) => void;
@@ -78,8 +79,10 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
   // mostra todos os jogadores que baterem, não só os melhores colocados.
   const filteredRankingItems = useMemo(() => {
     if (!searchQuery.trim()) return rankingData.items;
-    const q = searchQuery.toLowerCase().trim();
-    return rankingData.items.filter(item => item.player.displayName.toLowerCase().includes(q));
+    // normalizePlayerName tira acentos e caixa alta dos dois lados da
+    // comparação, então "Rene" encontra "Renê" e vice-versa.
+    const q = normalizePlayerName(searchQuery);
+    return rankingData.items.filter(item => normalizePlayerName(item.player.displayName).includes(q));
   }, [rankingData.items, searchQuery]);
 
   // Section 27: Top 10 by default
