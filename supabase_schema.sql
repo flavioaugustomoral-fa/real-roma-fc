@@ -22,6 +22,7 @@ DROP TABLE IF EXISTS public.matches CASCADE;
 DROP TABLE IF EXISTS public.players CASCADE;
 DROP TABLE IF EXISTS public.pelada_settings CASCADE;
 DROP TABLE IF EXISTS public.seasons CASCADE;
+DROP TABLE IF EXISTS public.season_stat_adjustments CASCADE;
 DROP TYPE IF EXISTS match_status_enum CASCADE;
 DROP TYPE IF EXISTS stat_event_type_enum CASCADE;
 DROP FUNCTION IF EXISTS check_admin_pin(TEXT);
@@ -184,6 +185,23 @@ CREATE TABLE IF NOT EXISTS public.seasons (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_seasons_single_open
   ON public.seasons ((end_date IS NULL)) WHERE end_date IS NULL;
 
+-- 11. Tabela: season_stat_adjustments (ajuste manual único de gols/
+-- assistências de antes do app existir — época da folha de papel, sem
+-- rodada associada. Some ao total de gols/assistências da temporada; por
+-- não ter rodada real por trás, a média e a contagem de rodadas daquela
+-- temporada são zeradas pra todo mundo no app, ver getRankings/
+-- getPlayerSummary. Sem tela de admin — inserido/editado direto por SQL,
+-- sob pedido pontual do organizador.)
+CREATE TABLE IF NOT EXISTS public.season_stat_adjustments (
+  id TEXT PRIMARY KEY,
+  season_id TEXT NOT NULL REFERENCES public.seasons(id) ON DELETE CASCADE,
+  player_id TEXT NOT NULL REFERENCES public.players(id) ON DELETE CASCADE,
+  goals_offset INTEGER NOT NULL DEFAULT 0,
+  assists_offset INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT unique_season_adjustment_per_player UNIQUE (season_id, player_id)
+);
+
 -- ==============================================================================
 -- FUNÇÃO DE NORMALIZAÇÃO AUTOMÁTICA DE NOMES
 -- ==============================================================================
@@ -211,6 +229,7 @@ ALTER TABLE public.stat_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pelada_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.seasons ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.season_stat_adjustments ENABLE ROW LEVEL SECURITY;
 
 -- Remove policies antigas (versões anteriores deste script liberavam escrita
 -- pública direta nessas tabelas; isso não existe mais).
@@ -250,6 +269,9 @@ CREATE POLICY "Leitura publica games" ON public.games FOR SELECT USING (true);
 
 DROP POLICY IF EXISTS "Leitura publica seasons" ON public.seasons;
 CREATE POLICY "Leitura publica seasons" ON public.seasons FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Leitura publica season_stat_adjustments" ON public.season_stat_adjustments;
+CREATE POLICY "Leitura publica season_stat_adjustments" ON public.season_stat_adjustments FOR SELECT USING (true);
 
 -- stat_events: nenhuma escrita pública. Lançar gol/assistência exige o PIN
 -- de Admin e passa por admin_add_stat_event() (só funciona com a pelada EM
@@ -628,6 +650,7 @@ BEGIN
   DELETE FROM public.matches WHERE true;
   DELETE FROM public.players WHERE true;
   DELETE FROM public.seasons WHERE true;
+  DELETE FROM public.season_stat_adjustments WHERE true;
 END;
 $$;
 
@@ -678,6 +701,9 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE public.seasons;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.season_stat_adjustments;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- ==============================================================================

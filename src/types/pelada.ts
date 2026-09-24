@@ -57,6 +57,20 @@ export interface Season {
   createdAt: string;
 }
 
+// Ajuste manual, único por jogador+temporada: soma gols/assistências de
+// antes do app existir (época da folha de papel) ao total da temporada.
+// Sem rodada real associada — por isso, quando uma temporada tem qualquer
+// ajuste, a média por rodada e a contagem de rodadas dela deixam de ser
+// exibidas (não dá pra confiar nesse número misturado com dado de papel).
+export interface SeasonAdjustment {
+  id: string;
+  seasonId: string;
+  playerId: string;
+  goalsOffset: number;
+  assistsOffset: number;
+  createdAt: string;
+}
+
 export interface Match {
   id: string;
   date: string; // YYYY-MM-DD
@@ -96,6 +110,7 @@ export interface PlayerStatSummary {
   assistsPerMatch: number;
   mvpCount: number;
   championTeamCount: number;
+  rodadaStatsNullified: boolean;
   history: Array<{
     matchId: string;
     date: string;

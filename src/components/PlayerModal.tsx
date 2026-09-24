@@ -145,7 +145,7 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({ playerId, onClose }) =
         </p>
 
         {/* Big Overall Stats Card - Section 15 */}
-        <div className="grid grid-cols-3 gap-2.5 mb-3 text-center">
+        <div className={`grid ${summary.rodadaStatsNullified ? 'grid-cols-2' : 'grid-cols-3'} gap-2.5 mb-3 text-center`}>
           <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80">
             <span className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
               Total Gols
@@ -164,17 +164,24 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({ playerId, onClose }) =
             </span>
           </div>
 
-          <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80">
-            <span className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-              Rodadas
-            </span>
-            <span className="text-2xl font-black text-slate-200">
-              {summary.matchesPlayed}
-            </span>
-          </div>
+          {!summary.rodadaStatsNullified && (
+            <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80">
+              <span className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                Rodadas
+              </span>
+              <span className="text-2xl font-black text-slate-200">
+                {summary.matchesPlayed}
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Calculated Averages Cards - Section 6 & 15 */}
+        {summary.rodadaStatsNullified ? (
+          <p className="text-[11px] text-amber-400/80 italic text-center mb-5 leading-relaxed">
+            Total inclui estatísticas de antes do app — média e nº de rodadas não disponíveis nesta temporada.
+          </p>
+        ) : (
+        /* Calculated Averages Cards - Section 6 & 15 */
         <div className="grid grid-cols-2 gap-2.5 mb-5 text-center">
           <div className="bg-emerald-950/30 p-3 rounded-xl border border-emerald-800/50">
             <span className="block text-[11px] font-bold text-emerald-300 uppercase tracking-wider">
@@ -196,6 +203,7 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({ playerId, onClose }) =
             <span className="block text-[10px] text-slate-400 mt-0.5">por rodada disputada</span>
           </div>
         </div>
+        )}
 
         {/* MVP & Team Champion Honors */}
         <div className="grid grid-cols-2 gap-2.5 mb-5 text-center">

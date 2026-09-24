@@ -8,6 +8,7 @@ import {
   PlayerStatSummary,
   RankingItem,
   Season,
+  SeasonAdjustment,
   StatEvent,
   StatEventType,
   Team,
@@ -69,6 +70,7 @@ export interface StorageData {
   statEvents: StatEvent[];
   auditLogs: AuditLog[];
   seasons: Season[];
+  seasonAdjustments: SeasonAdjustment[];
   settings: PeladaSettings;
 }
 
@@ -285,6 +287,7 @@ function getInitialSeedData(): StorageData {
     statEvents,
     auditLogs,
     seasons,
+    seasonAdjustments: [],
     settings: {
       peladaName: 'Pelada do Real Roma F.C.',
       logoUrl: DEFAULT_PELADA_LOGO,
@@ -332,6 +335,7 @@ class PeladaStore {
           statEvents: remote.statEvents,
           auditLogs: remote.auditLogs,
           seasons: remote.seasons,
+          seasonAdjustments: remote.seasonAdjustments,
           settings: { ...this.data.settings, ...(remote.settings || {}) },
         };
         this.applyingRemote = false;
@@ -362,6 +366,7 @@ class PeladaStore {
       statEvents: remote.statEvents,
       auditLogs: remote.auditLogs,
       seasons: remote.seasons,
+      seasonAdjustments: remote.seasonAdjustments,
       settings: { ...this.data.settings, ...(remote.settings || {}) },
     };
     this.applyingRemote = false;
@@ -418,6 +423,10 @@ class PeladaStore {
                 createdAt: new Date().toISOString(),
               },
             ];
+            updated = true;
+          }
+          if (!Array.isArray(parsed.seasonAdjustments)) {
+            parsed.seasonAdjustments = [];
             updated = true;
           }
           if (updated) {
@@ -1491,24 +1500,25 @@ class PeladaStore {
     year?: number;
     matchId?: string;
     seasonId?: string;
-  }): { items: RankingItem[]; totalCount: number; scopeLabel: string } {
+  }): { items: RankingItem[]; totalCount: number; scopeLabel: string; rodadaStatsNullified: boolean } {
     // 1. Filter ONLY FINALIZED matches
     let finalizedMatches = this.data.matches.filter(m => m.status === 'FINALIZED');
 
     let scopeLabel = 'Temporada';
+    let matchedSeason: Season | undefined;
 
     if (params.scope === 'SEASON') {
-      const season = params.seasonId
+      matchedSeason = params.seasonId
         ? this.data.seasons.find(s => s.id === params.seasonId)
         : this.getCurrentSeason();
-      if (season) {
+      if (matchedSeason) {
         // m.date e season.startDate/endDate são strings 'YYYY-MM-DD', que
         // comparam corretamente como texto (ordem lexicográfica = ordem
         // cronológica), sem os fusos-horários de new Date().
         finalizedMatches = finalizedMatches.filter(m =>
-          m.date >= season.startDate && (season.endDate === null || m.date <= season.endDate)
+          m.date >= matchedSeason!.startDate && (matchedSeason!.endDate === null || m.date <= matchedSeason!.endDate)
         );
-        scopeLabel = season.label;
+        scopeLabel = matchedSeason.label;
       } else {
         finalizedMatches = [];
         scopeLabel = 'Nenhuma temporada iniciada ainda.';
@@ -1552,6 +1562,22 @@ class PeladaStore {
       }
     });
 
+    // Ajuste manual único (gols/assistências de antes do app existir, sem
+    // rodada associada — ver SeasonAdjustment). Soma ao total da temporada
+    // correspondente. Quando a temporada tem QUALQUER ajuste, a média e a
+    // contagem de rodadas dela deixam de ser confiáveis e são zeradas pra
+    // todo mundo (não só quem recebeu o ajuste) — ver getPlayerSummary.
+    const seasonAdjustments = matchedSeason
+      ? this.data.seasonAdjustments.filter(a => a.seasonId === matchedSeason!.id)
+      : [];
+    seasonAdjustments.forEach(a => {
+      const offset = params.type === 'GOAL' ? a.goalsOffset : a.assistsOffset;
+      if (offset) {
+        countsMap.set(a.playerId, (countsMap.get(a.playerId) || 0) + offset);
+      }
+    });
+    const nullifyRodadaStats = params.scope === 'SEASON' && seasonAdjustments.length > 0;
+
     // Only include players who have at least 1 goal or 1 assist in the ranking
     // Or include all players who played? Section 27 says: "Todos os jogadores que possuírem estatísticas deverão ser considerados normalmente para fins de classificação e ordenação."
     const rankingItems: RankingItem[] = [];
@@ -1560,13 +1586,13 @@ class PeladaStore {
       if (count > 0) {
         const player = this.getPlayerById(playerId);
         if (player) {
-          const matchesPlayed = participationsMap.get(playerId) || 1;
+          const realMatchesPlayed = participationsMap.get(playerId) || 1;
           rankingItems.push({
             position: 1,
             player,
             count,
-            matchesPlayed,
-            average: Number((count / matchesPlayed).toFixed(2)),
+            matchesPlayed: nullifyRodadaStats ? 0 : realMatchesPlayed,
+            average: nullifyRodadaStats ? 0 : Number((count / realMatchesPlayed).toFixed(2)),
           });
         }
       }
@@ -1595,6 +1621,7 @@ class PeladaStore {
       items: rankingItems,
       totalCount: rankingItems.length,
       scopeLabel,
+      rodadaStatsNullified: nullifyRodadaStats,
     };
   }
 
@@ -1670,6 +1697,20 @@ class PeladaStore {
     // Sort history by date descending
     history.sort((a, b) => b.date.localeCompare(a.date));
 
+    // Ajuste manual único de época pré-app (folha de papel, sem rodada
+    // associada — ver SeasonAdjustment). Soma ao total, mas como não tem
+    // rodada real por trás, média e contagem de rodadas da temporada ficam
+    // sem sentido e são zeradas pra todo mundo (não só quem tem ajuste),
+    // igual à mesma regra em getRankings. O histórico de participações
+    // acima continua intacto, com as rodadas reais já registradas no app.
+    const seasonAdjustments = currentSeason
+      ? this.data.seasonAdjustments.filter(a => a.seasonId === currentSeason.id)
+      : [];
+    const myAdjustment = seasonAdjustments.find(a => a.playerId === playerId);
+    goals += myAdjustment?.goalsOffset || 0;
+    assists += myAdjustment?.assistsOffset || 0;
+    const nullifyRodadaStats = seasonAdjustments.length > 0;
+
     // Vezes eleito MVP da rodada, e vezes que o time dele terminou em 1º na
     // Classificação dos Times daquela rodada (só conta rodadas modo novo —
     // com Times — que tiveram ao menos 1 partida jogada; sem partida
@@ -1692,11 +1733,12 @@ class PeladaStore {
       player,
       goals,
       assists,
-      matchesPlayed,
-      goalsPerMatch: matchesPlayed > 0 ? Number((goals / matchesPlayed).toFixed(2)) : 0,
-      assistsPerMatch: matchesPlayed > 0 ? Number((assists / matchesPlayed).toFixed(2)) : 0,
+      matchesPlayed: nullifyRodadaStats ? 0 : matchesPlayed,
+      goalsPerMatch: nullifyRodadaStats || matchesPlayed === 0 ? 0 : Number((goals / matchesPlayed).toFixed(2)),
+      assistsPerMatch: nullifyRodadaStats || matchesPlayed === 0 ? 0 : Number((assists / matchesPlayed).toFixed(2)),
       mvpCount,
       championTeamCount,
+      rodadaStatsNullified: nullifyRodadaStats,
       history,
     };
   }
@@ -1747,6 +1789,7 @@ class PeladaStore {
       statEvents: [],
       auditLogs: [],
       seasons: [freshSeason],
+      seasonAdjustments: [],
       settings: this.data.settings,
     };
     this.data = empty;

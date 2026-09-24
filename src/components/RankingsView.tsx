@@ -288,12 +288,19 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
               ? `Exibindo ${displayedItems.length} de ${rankingData.totalCount} jogadores`
               : `${rankingData.totalCount} jogadores classificados`}
           </span>
+          {rankingData.rodadaStatsNullified && (
+            <span className="text-[11px] text-amber-400/80 italic block">
+              Inclui estatísticas de antes do app — média e nº de rodadas não disponíveis nesta temporada.
+            </span>
+          )}
         </div>
 
         {/* Tie-breaker rule indicator as per Section 27 */}
-        <span className="text-[10px] text-slate-500 font-mono hidden sm:inline">
-          Desempate: Menos rodadas (maior média)
-        </span>
+        {!rankingData.rodadaStatsNullified && (
+          <span className="text-[10px] text-slate-500 font-mono hidden sm:inline">
+            Desempate: Menos rodadas (maior média)
+          </span>
+        )}
       </div>
 
       {/* Ranking List Table / Cards */}
@@ -338,11 +345,13 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ onSelectPlayer }) =>
                           {item.player.displayName}
                         </span>
                       </div>
-                      <span className="text-[11px] text-slate-400 flex items-center gap-2">
-                        <span>{item.matchesPlayed} {item.matchesPlayed === 1 ? 'rodada' : 'rodadas'}</span>
-                        <span className="text-slate-600">•</span>
-                        <span>Média {item.average.toFixed(2)} / rodada</span>
-                      </span>
+                      {item.matchesPlayed > 0 && (
+                        <span className="text-[11px] text-slate-400 flex items-center gap-2">
+                          <span>{item.matchesPlayed} {item.matchesPlayed === 1 ? 'rodada' : 'rodadas'}</span>
+                          <span className="text-slate-600">•</span>
+                          <span>Média {item.average.toFixed(2)} / rodada</span>
+                        </span>
+                      )}
                     </div>
                   </div>
 
