@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { BottomNav, NavTab } from './components/BottomNav';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { HomeView } from './components/HomeView';
@@ -34,6 +34,55 @@ export default function App() {
   // returning it and the tab falls back to "Nenhuma Rodada Ativa" — no
   // stale finalized match lingers there inviting new lançamentos.
   const currentMatchToDisplay = matchForLiveView || activeMatch || null;
+
+  // Integração com o botão físico/gesto de "voltar" do celular. Como esse é
+  // um app de página única, trocar de aba (currentTab) ou abrir uma
+  // Partida/modal nunca mexe no histórico do navegador — pro Android, isso
+  // significa "nenhum histórico", e apertar voltar simplesmente fecha a
+  // aba/app em vez de navegar dentro do app. Por isso, toda mudança nesses
+  // quatro estados de navegação empurra uma entrada nova no histórico; ao
+  // apertar voltar, o navegador consome essa entrada primeiro (isPoppingRef
+  // evita empurrar de novo) e só fecha o app de verdade quando não sobrar
+  // mais nada pra "desfazer" (ou seja, já na Home, sem nada aberto).
+  const isPoppingNavRef = useRef(false);
+  const navHistoryInitializedRef = useRef(false);
+
+  useEffect(() => {
+    const state = {
+      tab: currentTab,
+      gameId: selectedGameId,
+      playerId: selectedPlayerId,
+      createMatchOpen: isCreateMatchOpen,
+    };
+    if (!navHistoryInitializedRef.current) {
+      navHistoryInitializedRef.current = true;
+      window.history.replaceState(state, '');
+      return;
+    }
+    if (isPoppingNavRef.current) {
+      isPoppingNavRef.current = false;
+      return;
+    }
+    window.history.pushState(state, '');
+  }, [currentTab, selectedGameId, selectedPlayerId, isCreateMatchOpen]);
+
+  useEffect(() => {
+    const onPopState = (e: PopStateEvent) => {
+      const s = (e.state as {
+        tab?: NavTab;
+        gameId?: string | null;
+        playerId?: string | null;
+        createMatchOpen?: boolean;
+      } | null) || {};
+      isPoppingNavRef.current = true;
+      setCurrentTab(s.tab || 'home');
+      setSelectedGameId(s.gameId || null);
+      setSelectedPlayerId(s.playerId || null);
+      setIsCreateMatchOpen(s.createMatchOpen || false);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
   const handleMatchCreatedSuccess = (matchId: string) => {
     setIsCreateMatchOpen(false);
