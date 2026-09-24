@@ -201,12 +201,15 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                         </span>
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-xs text-slate-500 font-mono">
-                            {season.startDate.split('-').reverse().join('/')}
-                            {season.endDate ? ` – ${season.endDate.split('-').reverse().join('/')}` : ' – hoje'}
+                            {season.startDate.split('-').reverse().join('/')} –
                           </span>
-                          {season.endDate === null && (
+                          {season.endDate === null ? (
                             <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shrink-0">
                               Atual
+                            </span>
+                          ) : (
+                            <span className="text-xs text-slate-500 font-mono">
+                              {season.endDate.split('-').reverse().join('/')}
                             </span>
                           )}
                         </div>
