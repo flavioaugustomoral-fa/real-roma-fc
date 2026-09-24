@@ -3,6 +3,8 @@ import {
   Play,
   ChevronRight,
   Instagram,
+  Goal,
+  Footprints,
 } from 'lucide-react';
 import { usePeladaStore } from '../hooks/usePeladaStore';
 import { NavTab } from './BottomNav';
@@ -118,7 +120,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
           <div className="flex items-center justify-between pb-2 border-b border-slate-800/80 mb-3">
             <div className="flex items-center gap-2">
-              <span className="text-lg">⚽</span>
+              <Goal className="w-4 h-4 text-emerald-400" />
               <h3 className="text-xs font-black uppercase tracking-wider text-slate-200">
                 Artilharia da {seasonLabel}
               </h3>
@@ -166,7 +168,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
           <div className="flex items-center justify-between pb-2 border-b border-slate-800/80 mb-3">
             <div className="flex items-center gap-2">
-              <span className="text-lg">👟</span>
+              <Footprints className="w-4 h-4 text-blue-400" />
               <h3 className="text-xs font-black uppercase tracking-wider text-slate-200">
                 Garçons da {seasonLabel}
               </h3>

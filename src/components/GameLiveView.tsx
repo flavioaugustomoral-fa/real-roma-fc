@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ArrowLeft, Minus, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Minus, Trash2, X, Goal, Footprints } from 'lucide-react';
 import { usePeladaStore } from '../hooks/usePeladaStore';
 
 interface GameLiveViewProps {
@@ -56,7 +56,7 @@ export const GameLiveView: React.FC<GameLiveViewProps> = ({
       type,
       createdBy: 'Administrador',
     });
-    triggerToast(type === 'GOAL' ? `⚽ Gol registrado para ${registerFor.playerName}!` : `👟 Assistência registrada para ${registerFor.playerName}!`);
+    triggerToast(type === 'GOAL' ? `Gol registrado para ${registerFor.playerName}!` : `Assistência registrada para ${registerFor.playerName}!`);
     setRegisterFor(null);
   };
 
@@ -107,10 +107,10 @@ export const GameLiveView: React.FC<GameLiveViewProps> = ({
 
             <div className="flex items-center gap-1.5 text-[11px] mb-1.5">
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg font-black bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                ⚽ {goals}
+                <Goal className="w-3 h-3" /> {goals}
               </span>
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg font-black bg-blue-500/15 text-blue-400 border border-blue-500/30">
-                👟 {assists}
+                <Footprints className="w-3 h-3" /> {assists}
               </span>
             </div>
 
@@ -225,7 +225,7 @@ export const GameLiveView: React.FC<GameLiveViewProps> = ({
                 id="btn-register-goal"
                 className="py-4 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 active:scale-[0.97] transition-all text-white font-extrabold text-sm flex flex-col items-center gap-1.5 shadow-lg shadow-emerald-950/60"
               >
-                <span className="text-2xl">⚽</span>
+                <Goal className="w-6 h-6" />
                 <span>Gol</span>
               </button>
               <button
@@ -233,7 +233,7 @@ export const GameLiveView: React.FC<GameLiveViewProps> = ({
                 id="btn-register-assist"
                 className="py-4 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 active:scale-[0.97] transition-all text-white font-extrabold text-sm flex flex-col items-center gap-1.5 shadow-lg shadow-blue-950/60"
               >
-                <span className="text-2xl">👟</span>
+                <Footprints className="w-6 h-6" />
                 <span>Assistência</span>
               </button>
             </div>
