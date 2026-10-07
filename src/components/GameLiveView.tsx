@@ -82,7 +82,7 @@ export const GameLiveView: React.FC<GameLiveViewProps> = ({
 
   const renderTeamColumn = (
     teamName: string,
-    players: Array<{ player: { id: string; displayName: string }; goals: number; assists: number }>
+    players: Array<{ player: { id: string; displayName: string }; goals: number; assists: number; substituteFor?: string }>
   ) => (
     <div className="space-y-2 flex-1 min-w-0">
       <h3 className="text-xs font-black uppercase tracking-wider text-slate-300 text-center truncate px-1">
@@ -91,7 +91,7 @@ export const GameLiveView: React.FC<GameLiveViewProps> = ({
       {players.length === 0 ? (
         <p className="text-[11px] text-slate-500 italic text-center py-4">Sem jogadores</p>
       ) : (
-        players.map(({ player, goals, assists }) => (
+        players.map(({ player, goals, assists, substituteFor }) => (
           <div
             key={player.id}
             className="bg-slate-900 border border-slate-800 rounded-xl p-2.5 shadow-sm"
@@ -104,6 +104,11 @@ export const GameLiveView: React.FC<GameLiveViewProps> = ({
               <span className="text-xs sm:text-sm font-black text-white hover:text-emerald-400 tracking-tight transition uppercase block truncate">
                 {player.displayName}
               </span>
+              {substituteFor && (
+                <span className="block text-[10px] font-semibold text-amber-400 truncate normal-case">
+                  Substituindo {substituteFor}
+                </span>
+              )}
             </button>
 
             <div className="flex items-center gap-1.5 text-[11px] mb-1.5">

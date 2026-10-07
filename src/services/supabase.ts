@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import {
   AuditLog,
   Game,
+  GameSubstitution,
   Match,
   MatchPlayer,
   PeladaSettings,
@@ -93,6 +94,17 @@ function gameFromDb(row: any): Game {
   };
 }
 
+function gameSubstitutionFromDb(row: any): GameSubstitution {
+  return {
+    id: row.id,
+    gameId: row.game_id,
+    teamId: row.team_id,
+    outPlayerId: row.out_player_id,
+    inPlayerId: row.in_player_id,
+    createdAt: row.created_at,
+  };
+}
+
 function seasonFromDb(row: any): Season {
   return {
     id: row.id,
@@ -156,6 +168,7 @@ export interface RemoteData {
   auditLogs: AuditLog[];
   seasons: Season[];
   seasonAdjustments: SeasonAdjustment[];
+  gameSubstitutions: GameSubstitution[];
   settings: RemoteSettings | null;
 }
 
@@ -184,7 +197,7 @@ async function fetchSettingsRow() {
 export async function fetchAllRemoteData(): Promise<RemoteData | null> {
   if (!supabase) return null;
   try {
-    const [playersRes, matchesRes, teamsRes, matchPlayersRes, gamesRes, statEventsRes, auditLogsRes, seasonsRes, seasonAdjustmentsRes, settingsRes] = await Promise.all([
+    const [playersRes, matchesRes, teamsRes, matchPlayersRes, gamesRes, statEventsRes, auditLogsRes, seasonsRes, seasonAdjustmentsRes, gameSubstitutionsRes, settingsRes] = await Promise.all([
       supabase.from('players').select('*'),
       supabase.from('matches').select('*'),
       supabase.from('teams').select('*'),
@@ -194,6 +207,7 @@ export async function fetchAllRemoteData(): Promise<RemoteData | null> {
       supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(500),
       supabase.from('seasons').select('*'),
       supabase.from('season_stat_adjustments').select('*'),
+      supabase.from('game_substitutions').select('*'),
       fetchSettingsRow(),
     ]);
 
@@ -209,6 +223,7 @@ export async function fetchAllRemoteData(): Promise<RemoteData | null> {
     if (gamesRes.error) console.warn('Tabela "games" ainda não existe neste projeto Supabase (rode a migração de Times/Partidas):', gamesRes.error);
     if (seasonsRes.error) console.warn('Tabela "seasons" ainda não existe neste projeto Supabase (rode a migração de Temporadas):', seasonsRes.error);
     if (seasonAdjustmentsRes.error) console.warn('Tabela "season_stat_adjustments" ainda não existe neste projeto Supabase:', seasonAdjustmentsRes.error);
+    if (gameSubstitutionsRes.error) console.warn('Tabela "game_substitutions" ainda não existe neste projeto Supabase (rode a migração de Substituições):', gameSubstitutionsRes.error);
 
     return {
       players: (playersRes.data || []).map(playerFromDb),
@@ -220,6 +235,7 @@ export async function fetchAllRemoteData(): Promise<RemoteData | null> {
       auditLogs: (auditLogsRes.data || []).map(auditLogFromDb),
       seasons: (seasonsRes.data || []).map(seasonFromDb),
       seasonAdjustments: (seasonAdjustmentsRes.data || []).map(seasonAdjustmentFromDb),
+      gameSubstitutions: (gameSubstitutionsRes.data || []).map(gameSubstitutionFromDb),
       settings: settingsRes.data ? settingsFromDb(settingsRes.data) : null,
     };
   } catch (error) {
@@ -384,6 +400,20 @@ export async function pushGame(game: Game, pin: string) {
     p_created_at: game.createdAt,
   });
   if (error) console.error('Erro ao salvar partida no Supabase:', error);
+}
+
+export async function pushGameSubstitution(sub: GameSubstitution, pin: string) {
+  if (!supabase) return;
+  const { error } = await supabase.rpc('admin_add_game_substitution', {
+    p_pin: pin,
+    p_id: sub.id,
+    p_game_id: sub.gameId,
+    p_team_id: sub.teamId,
+    p_out_player_id: sub.outPlayerId,
+    p_in_player_id: sub.inPlayerId,
+    p_created_at: sub.createdAt,
+  });
+  if (error) console.error('Erro ao salvar substituição no Supabase:', error);
 }
 
 export async function deleteRemoteGame(gameId: string, pin: string) {
@@ -589,6 +619,7 @@ export function subscribeToRemoteChanges(onChange: () => void): () => void {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'stat_events' }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'seasons' }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'season_stat_adjustments' }, onChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'game_substitutions' }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'pelada_settings' }, onChange)
     .subscribe();
 

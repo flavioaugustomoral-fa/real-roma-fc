@@ -14,6 +14,8 @@ import {
   X,
   Trophy,
   Pencil,
+  ArrowLeftRight,
+  Undo2,
 } from 'lucide-react';
 import { Match } from '../types/pelada';
 import { usePeladaStore } from '../hooks/usePeladaStore';
@@ -1104,14 +1106,38 @@ const CreateGameModal: React.FC<{
   onClose: () => void;
   onCreated: (gameId: string) => void;
 }> = ({ matchId, teams, onClose, onCreated }) => {
-  const { store } = usePeladaStore();
+  const { store, data } = usePeladaStore();
   const [teamAId, setTeamAId] = useState(teams[0]?.id || '');
   const [teamBId, setTeamBId] = useState(teams[1]?.id || '');
+  const [subs, setSubs] = useState<Array<{ teamId: string; outPlayerId: string; inPlayerId: string }>>([]);
+  const [pickerFor, setPickerFor] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const changeTeam = (side: 'A' | 'B', id: string) => {
+    if (side === 'A') setTeamAId(id);
+    else setTeamBId(id);
+    // Trocar de time invalida as substituições já escolhidas.
+    setSubs([]);
+    setPickerFor(null);
+    setError(null);
+  };
+
+  const teamName = (id: string | null | undefined) => teams.find(t => t.id === id)?.name || '';
+  const rosterA = useMemo(() => store.getTeamRoster(teamAId), [store, teamAId, data]);
+  const rosterB = useMemo(() => store.getTeamRoster(teamBId), [store, teamBId, data]);
+
+  // Quem pode entrar: participantes da rodada que estão em times que NÃO
+  // jogam esta partida, e que ainda não foram escolhidos como substituto.
+  const substitutePool = useMemo(() => {
+    const used = new Set(subs.map(s => s.inPlayerId));
+    return store
+      .getMatchPlayers(matchId)
+      .filter(x => x.matchPlayer.teamId && x.matchPlayer.teamId !== teamAId && x.matchPlayer.teamId !== teamBId && !used.has(x.player.id));
+  }, [store, matchId, teamAId, teamBId, subs, data]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const res = store.createGame(matchId, teamAId, teamBId, 'Administrador');
+    const res = store.createGame(matchId, teamAId, teamBId, 'Administrador', subs);
     if (!res.success || !res.game) {
       setError(res.error || 'Não foi possível criar a partida.');
       return;
@@ -1119,9 +1145,84 @@ const CreateGameModal: React.FC<{
     onCreated(res.game.id);
   };
 
+  const renderRoster = (
+    teamId: string,
+    roster: Array<{ player: { id: string; displayName: string } }>
+  ) => (
+    <div>
+      <span className="block text-xs font-semibold text-slate-300 mb-1.5">{teamName(teamId)}</span>
+      <div className="space-y-1.5">
+        {roster.map(({ player }) => {
+          const sub = subs.find(s => s.outPlayerId === player.id);
+          const subPlayer = sub ? store.getPlayerById(sub.inPlayerId) : undefined;
+          return (
+            <div key={player.id}>
+              <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-slate-950/60 border border-slate-800/80">
+                {sub ? (
+                  <div className="min-w-0">
+                    <span className="block text-sm font-bold text-white truncate">{subPlayer?.displayName}</span>
+                    <span className="block text-[10px] font-semibold text-amber-400 truncate">no lugar de {player.displayName}</span>
+                  </div>
+                ) : (
+                  <span className="text-sm font-semibold text-slate-200 truncate">{player.displayName}</span>
+                )}
+                {sub ? (
+                  <button
+                    type="button"
+                    onClick={() => setSubs(prev => prev.filter(s => s.outPlayerId !== player.id))}
+                    title="Desfazer substituição"
+                    className="p-1.5 rounded-lg text-amber-400 hover:text-amber-300 hover:bg-slate-800 transition shrink-0"
+                  >
+                    <Undo2 className="w-3.5 h-3.5" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setPickerFor(pickerFor === player.id ? null : player.id)}
+                    title={`Substituir ${player.displayName}`}
+                    className="p-1.5 rounded-lg text-slate-500 hover:text-blue-400 hover:bg-slate-800 transition shrink-0"
+                  >
+                    <ArrowLeftRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {!sub && pickerFor === player.id && (
+                <div className="mt-1">
+                  {substitutePool.length === 0 ? (
+                    <p className="text-[11px] text-slate-500 italic px-1">Nenhum jogador disponível nos outros times.</p>
+                  ) : (
+                    <select
+                      autoFocus
+                      value=""
+                      onChange={(e) => {
+                        if (!e.target.value) return;
+                        setSubs(prev => [...prev, { teamId, outPlayerId: player.id, inPlayerId: e.target.value }]);
+                        setPickerFor(null);
+                        setError(null);
+                      }}
+                      className="w-full text-xs py-1.5 px-2.5 rounded-lg bg-slate-950 border border-blue-700/60 text-white focus:outline-none focus:border-blue-500 transition"
+                    >
+                      <option value="">Substituir {player.displayName} por...</option>
+                      {substitutePool.map(x => (
+                        <option key={x.player.id} value={x.player.id}>
+                          {x.player.displayName} ({teamName(x.matchPlayer.teamId)})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-150">
-      <div className="w-full max-w-sm rounded-2xl bg-slate-900 border border-slate-800 p-5 sm:p-6 shadow-2xl my-auto">
+      <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-slate-800 p-5 sm:p-6 shadow-2xl my-auto">
         <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
           <h3 className="text-base font-bold text-white flex items-center gap-2">
             <Swords className="w-4 h-4 text-blue-400" />
@@ -1137,7 +1238,7 @@ const CreateGameModal: React.FC<{
             <label className="block text-xs font-semibold text-slate-300 mb-1">Time A</label>
             <select
               value={teamAId}
-              onChange={(e) => { setTeamAId(e.target.value); setError(null); }}
+              onChange={(e) => changeTeam('A', e.target.value)}
               className="w-full text-sm py-2 px-3 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-emerald-500 transition"
             >
               {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -1148,12 +1249,22 @@ const CreateGameModal: React.FC<{
             <label className="block text-xs font-semibold text-slate-300 mb-1">Time B</label>
             <select
               value={teamBId}
-              onChange={(e) => { setTeamBId(e.target.value); setError(null); }}
+              onChange={(e) => changeTeam('B', e.target.value)}
               className="w-full text-sm py-2 px-3 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-emerald-500 transition"
             >
               {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
+
+          {teamAId && teamBId && teamAId !== teamBId && (
+            <div className="space-y-3 pt-1">
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Precisa trocar alguém só nesta partida? Toque em <ArrowLeftRight className="inline w-3 h-3 -mt-0.5" /> ao lado do jogador.
+              </p>
+              {renderRoster(teamAId, rosterA)}
+              {renderRoster(teamBId, rosterB)}
+            </div>
+          )}
 
           {error && (
             <p className="text-xs text-rose-400 font-medium bg-rose-950/30 p-2.5 rounded-lg border border-rose-800/50">

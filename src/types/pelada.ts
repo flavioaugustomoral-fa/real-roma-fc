@@ -71,6 +71,18 @@ export interface SeasonAdjustment {
   createdAt: string;
 }
 
+// Substituição pontual dentro de UMA partida: o jogador "out" (do time
+// indicado) dá lugar ao jogador "in" só naquela partida — nada muda no
+// elenco do time nem nas outras partidas da rodada.
+export interface GameSubstitution {
+  id: string;
+  gameId: string;
+  teamId: string;
+  outPlayerId: string;
+  inPlayerId: string;
+  createdAt: string;
+}
+
 export interface Match {
   id: string;
   date: string; // YYYY-MM-DD

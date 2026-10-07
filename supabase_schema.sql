@@ -23,6 +23,7 @@ DROP TABLE IF EXISTS public.players CASCADE;
 DROP TABLE IF EXISTS public.pelada_settings CASCADE;
 DROP TABLE IF EXISTS public.seasons CASCADE;
 DROP TABLE IF EXISTS public.season_stat_adjustments CASCADE;
+DROP TABLE IF EXISTS public.game_substitutions CASCADE;
 DROP TYPE IF EXISTS match_status_enum CASCADE;
 DROP TYPE IF EXISTS stat_event_type_enum CASCADE;
 DROP FUNCTION IF EXISTS check_admin_pin(TEXT);
@@ -50,6 +51,7 @@ DROP FUNCTION IF EXISTS admin_wipe_all(TEXT);
 DROP FUNCTION IF EXISTS admin_create_season(TEXT, TEXT, TEXT, DATE, TIMESTAMPTZ);
 DROP FUNCTION IF EXISTS admin_finalize_season(TEXT, DATE, TEXT, DATE, TEXT);
 DROP FUNCTION IF EXISTS admin_rename_season(TEXT, TEXT, TEXT);
+DROP FUNCTION IF EXISTS admin_add_game_substitution(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ);
 
 -- 1. Habilitar extensão necessária para normalização de texto
 CREATE EXTENSION IF NOT EXISTS "unaccent";
@@ -125,6 +127,23 @@ CREATE TABLE IF NOT EXISTS public.games (
 );
 
 CREATE INDEX IF NOT EXISTS idx_games_match ON public.games(match_id);
+
+-- 6b. Tabela: game_substitutions (troca pontual de jogador DENTRO de uma
+-- partida: o jogador "out" do time dá lugar ao "in" só naquela partida; o
+-- elenco do time e as outras partidas da rodada não mudam).
+CREATE TABLE IF NOT EXISTS public.game_substitutions (
+  id TEXT PRIMARY KEY,
+  game_id TEXT NOT NULL REFERENCES public.games(id) ON DELETE CASCADE,
+  team_id TEXT NOT NULL REFERENCES public.teams(id) ON DELETE CASCADE,
+  out_player_id TEXT NOT NULL REFERENCES public.players(id) ON DELETE CASCADE,
+  in_player_id TEXT NOT NULL REFERENCES public.players(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT unique_sub_out_per_game UNIQUE (game_id, out_player_id),
+  CONSTRAINT unique_sub_in_per_game UNIQUE (game_id, in_player_id),
+  CONSTRAINT sub_players_different CHECK (out_player_id <> in_player_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_substitutions_game ON public.game_substitutions(game_id);
 
 -- 7. Tabela: stat_events (lançamentos individuais de gols e assistências).
 -- game_id fica nulo nos lançamentos de rodadas antigas (modo clássico, sem
@@ -230,6 +249,7 @@ ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pelada_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.seasons ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.season_stat_adjustments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.game_substitutions ENABLE ROW LEVEL SECURITY;
 
 -- Remove policies antigas (versões anteriores deste script liberavam escrita
 -- pública direta nessas tabelas; isso não existe mais).
@@ -269,6 +289,9 @@ CREATE POLICY "Leitura publica games" ON public.games FOR SELECT USING (true);
 
 DROP POLICY IF EXISTS "Leitura publica seasons" ON public.seasons;
 CREATE POLICY "Leitura publica seasons" ON public.seasons FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Leitura publica game_substitutions" ON public.game_substitutions;
+CREATE POLICY "Leitura publica game_substitutions" ON public.game_substitutions FOR SELECT USING (true);
 
 DROP POLICY IF EXISTS "Leitura publica season_stat_adjustments" ON public.season_stat_adjustments;
 CREATE POLICY "Leitura publica season_stat_adjustments" ON public.season_stat_adjustments FOR SELECT USING (true);
@@ -369,6 +392,22 @@ BEGIN
   DELETE FROM public.match_players WHERE player_id = p_player_id;
 
   UPDATE public.stat_events SET player_id = v_target_id WHERE player_id = p_player_id;
+
+  -- Substituições de partida: descarta as que ficariam conflitantes/inválidas
+  -- após a mescla (mesmo jogador de destino já envolvido na partida, ou
+  -- troca entre os dois jogadores mesclados) e aponta o resto pro destino.
+  DELETE FROM public.game_substitutions gs
+  WHERE (gs.out_player_id = p_player_id OR gs.in_player_id = p_player_id)
+    AND (
+      (gs.out_player_id = v_target_id OR gs.in_player_id = v_target_id)
+      OR EXISTS (
+        SELECT 1 FROM public.game_substitutions g2
+        WHERE g2.game_id = gs.game_id AND g2.id <> gs.id
+          AND (g2.out_player_id = v_target_id OR g2.in_player_id = v_target_id)
+      )
+    );
+  UPDATE public.game_substitutions SET out_player_id = v_target_id WHERE out_player_id = p_player_id;
+  UPDATE public.game_substitutions SET in_player_id = v_target_id WHERE in_player_id = p_player_id;
 
   DELETE FROM public.players WHERE id = p_player_id;
 
@@ -520,6 +559,44 @@ BEGIN
 END;
 $$;
 
+-- Registra uma substituição pontual numa partida já criada: quem sai precisa
+-- ser do elenco do time indicado (um dos 2 times da partida), e quem entra
+-- precisa ser participante da rodada mas de um time que NÃO joga esta partida.
+CREATE OR REPLACE FUNCTION admin_add_game_substitution(
+  p_pin TEXT, p_id TEXT, p_game_id TEXT, p_team_id TEXT, p_out_player_id TEXT, p_in_player_id TEXT, p_created_at TIMESTAMPTZ
+) RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_match_id TEXT;
+  v_team_a TEXT;
+  v_team_b TEXT;
+  v_in_team TEXT;
+BEGIN
+  PERFORM check_admin_pin(p_pin);
+  SELECT match_id, team_a_id, team_b_id INTO v_match_id, v_team_a, v_team_b
+  FROM public.games WHERE id = p_game_id;
+  IF v_match_id IS NULL THEN
+    RAISE EXCEPTION 'Partida não encontrada' USING ERRCODE = '22000';
+  END IF;
+  IF p_team_id NOT IN (v_team_a, v_team_b) THEN
+    RAISE EXCEPTION 'O time da substituição não joga esta partida' USING ERRCODE = '22000';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.match_players
+    WHERE match_id = v_match_id AND player_id = p_out_player_id AND team_id = p_team_id
+  ) THEN
+    RAISE EXCEPTION 'Quem sai precisa ser do elenco do time' USING ERRCODE = '22000';
+  END IF;
+  SELECT team_id INTO v_in_team
+  FROM public.match_players WHERE match_id = v_match_id AND player_id = p_in_player_id;
+  IF v_in_team IS NULL OR v_in_team IN (v_team_a, v_team_b) THEN
+    RAISE EXCEPTION 'Quem entra precisa ser de um time que não joga esta partida' USING ERRCODE = '22000';
+  END IF;
+  INSERT INTO public.game_substitutions (id, game_id, team_id, out_player_id, in_player_id, created_at)
+  VALUES (p_id, p_game_id, p_team_id, p_out_player_id, p_in_player_id, COALESCE(p_created_at, NOW()))
+  ON CONFLICT (id) DO NOTHING;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION admin_delete_game(p_pin TEXT, p_id TEXT)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -563,8 +640,22 @@ BEGIN
       RAISE EXCEPTION 'Partida não encontrada nesta rodada' USING ERRCODE = '22000';
     END IF;
 
-    SELECT team_id INTO v_player_team
-    FROM public.match_players WHERE match_id = p_match_id AND player_id = p_player_id;
+    -- Time pelo qual o jogador atua NESTA partida: substituto entra pelo time
+    -- do substituído; substituído não joga mais; demais seguem o elenco.
+    SELECT gs.team_id INTO v_player_team
+    FROM public.game_substitutions gs
+    WHERE gs.game_id = p_game_id AND gs.in_player_id = p_player_id;
+
+    IF v_player_team IS NULL THEN
+      IF EXISTS (
+        SELECT 1 FROM public.game_substitutions
+        WHERE game_id = p_game_id AND out_player_id = p_player_id
+      ) THEN
+        RAISE EXCEPTION 'Jogador foi substituído nesta partida' USING ERRCODE = '22000';
+      END IF;
+      SELECT team_id INTO v_player_team
+      FROM public.match_players WHERE match_id = p_match_id AND player_id = p_player_id;
+    END IF;
 
     IF v_player_team IS NULL OR v_player_team NOT IN (v_team_a, v_team_b) THEN
       RAISE EXCEPTION 'Jogador não pertence a nenhum dos times desta partida' USING ERRCODE = '22000';
@@ -674,6 +765,7 @@ GRANT EXECUTE ON FUNCTION admin_wipe_all(TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_create_season(TEXT, TEXT, TEXT, DATE, TIMESTAMPTZ) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_finalize_season(TEXT, DATE, TEXT, DATE, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_rename_season(TEXT, TEXT, TEXT) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION admin_add_game_substitution(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ) TO anon, authenticated;
 
 -- ==============================================================================
 -- REALTIME: garante que INSERT/UPDATE/DELETE sejam transmitidos aos clientes
@@ -704,6 +796,9 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE public.season_stat_adjustments;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.game_substitutions;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- ==============================================================================

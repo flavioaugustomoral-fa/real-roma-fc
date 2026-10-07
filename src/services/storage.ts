@@ -1,6 +1,7 @@
 import {
   AuditLog,
   Game,
+  GameSubstitution,
   Match,
   MatchPlayer,
   PeladaSettings,
@@ -36,6 +37,7 @@ import {
   deleteRemoteTeam,
   setTeamRoster,
   pushGame,
+  pushGameSubstitution,
   deleteRemoteGame,
   pushSeason,
   finalizeSeasonRemote,
@@ -71,6 +73,7 @@ export interface StorageData {
   auditLogs: AuditLog[];
   seasons: Season[];
   seasonAdjustments: SeasonAdjustment[];
+  gameSubstitutions: GameSubstitution[];
   settings: PeladaSettings;
 }
 
@@ -288,6 +291,7 @@ function getInitialSeedData(): StorageData {
     auditLogs,
     seasons,
     seasonAdjustments: [],
+    gameSubstitutions: [],
     settings: {
       peladaName: 'Pelada do Real Roma F.C.',
       logoUrl: DEFAULT_PELADA_LOGO,
@@ -336,6 +340,7 @@ class PeladaStore {
           auditLogs: remote.auditLogs,
           seasons: remote.seasons,
           seasonAdjustments: remote.seasonAdjustments,
+          gameSubstitutions: remote.gameSubstitutions,
           settings: { ...this.data.settings, ...(remote.settings || {}) },
         };
         this.applyingRemote = false;
@@ -367,6 +372,7 @@ class PeladaStore {
       auditLogs: remote.auditLogs,
       seasons: remote.seasons,
       seasonAdjustments: remote.seasonAdjustments,
+      gameSubstitutions: remote.gameSubstitutions,
       settings: { ...this.data.settings, ...(remote.settings || {}) },
     };
     this.applyingRemote = false;
@@ -427,6 +433,10 @@ class PeladaStore {
           }
           if (!Array.isArray(parsed.seasonAdjustments)) {
             parsed.seasonAdjustments = [];
+            updated = true;
+          }
+          if (!Array.isArray(parsed.gameSubstitutions)) {
+            parsed.gameSubstitutions = [];
             updated = true;
           }
           if (updated) {
@@ -928,6 +938,7 @@ class PeladaStore {
       this.data.games.filter(g => g.teamAId === teamId || g.teamBId === teamId).map(g => g.id)
     );
     this.data.games = this.data.games.filter(g => !affectedGameIds.has(g.id));
+    this.data.gameSubstitutions = this.data.gameSubstitutions.filter(s => !affectedGameIds.has(s.gameId));
     this.data.statEvents = this.data.statEvents.filter(ev => !ev.gameId || !affectedGameIds.has(ev.gameId));
     this.data.matchPlayers = this.data.matchPlayers.filter(mp => mp.teamId !== teamId);
     this.data.teams = this.data.teams.filter(t => t.id !== teamId);
@@ -956,6 +967,17 @@ class PeladaStore {
     return this.data.games.find(g => g.id === gameId);
   }
 
+  // Time pelo qual o jogador atua NESTA partida: o substituto entra pelo time
+  // do substituído, o substituído não joga (null), e os demais seguem o time
+  // do elenco da rodada.
+  private getPlayerTeamInGame(game: Game, playerId: string): string | null {
+    const subs = this.data.gameSubstitutions.filter(s => s.gameId === game.id);
+    const asIn = subs.find(s => s.inPlayerId === playerId);
+    if (asIn) return asIn.teamId;
+    if (subs.some(s => s.outPlayerId === playerId)) return null;
+    return this.data.matchPlayers.find(m => m.matchId === game.matchId && m.playerId === playerId)?.teamId ?? null;
+  }
+
   public getGamesForMatch(matchId: string): Array<{
     game: Game;
     teamA: Team | undefined;
@@ -973,9 +995,9 @@ class PeladaStore {
         let teamAGoals = 0;
         let teamBGoals = 0;
         goalEvents.forEach(ev => {
-          const mp = this.data.matchPlayers.find(m => m.matchId === matchId && m.playerId === ev.playerId);
-          if (mp?.teamId === game.teamAId) teamAGoals++;
-          else if (mp?.teamId === game.teamBId) teamBGoals++;
+          const playerTeamId = this.getPlayerTeamInGame(game, ev.playerId);
+          if (playerTeamId === game.teamAId) teamAGoals++;
+          else if (playerTeamId === game.teamBId) teamBGoals++;
         });
 
         return { game, teamA, teamB, teamAGoals, teamBGoals };
@@ -1040,11 +1062,15 @@ class PeladaStore {
   // Cria uma partida (dois times da mesma rodada). Sem ciclo próprio de
   // iniciar/finalizar: já aceita lançamentos assim que criada, contanto que
   // a rodada esteja EM ANDAMENTO (regra conferida no banco).
+  // `substitutions` (opcional): trocas só pra ESTA partida — quem sai precisa
+  // ser do elenco do time indicado, e quem entra precisa ser da rodada mas
+  // de um time que não está jogando esta partida (e não pode entrar duas vezes).
   public createGame(
     matchId: string,
     teamAId: string,
     teamBId: string,
-    performedBy = 'Administrador'
+    performedBy = 'Administrador',
+    substitutions: Array<{ teamId: string; outPlayerId: string; inPlayerId: string }> = []
   ): { success: boolean; game?: Game; error?: string } {
     if (teamAId === teamBId) {
       return { success: false, error: 'Escolha dois times diferentes.' };
@@ -1053,6 +1079,24 @@ class PeladaStore {
     const teamB = this.data.teams.find(t => t.id === teamBId && t.matchId === matchId);
     if (!teamA || !teamB) {
       return { success: false, error: 'Times inválidos para esta rodada.' };
+    }
+
+    const seenOut = new Set<string>();
+    const seenIn = new Set<string>();
+    for (const s of substitutions) {
+      const outMp = this.data.matchPlayers.find(m => m.matchId === matchId && m.playerId === s.outPlayerId);
+      const inMp = this.data.matchPlayers.find(m => m.matchId === matchId && m.playerId === s.inPlayerId);
+      const validTeam = s.teamId === teamAId || s.teamId === teamBId;
+      if (
+        !validTeam ||
+        !outMp || outMp.teamId !== s.teamId ||
+        !inMp || inMp.teamId === teamAId || inMp.teamId === teamBId ||
+        seenOut.has(s.outPlayerId) || seenIn.has(s.inPlayerId)
+      ) {
+        return { success: false, error: 'Substituição inválida. Revise as trocas e tente de novo.' };
+      }
+      seenOut.add(s.outPlayerId);
+      seenIn.add(s.inPlayerId);
     }
 
     const newGame: Game = {
@@ -1064,11 +1108,26 @@ class PeladaStore {
     };
     this.data.games.push(newGame);
 
+    const newSubs: GameSubstitution[] = substitutions.map(s => ({
+      id: generateId('sub'),
+      gameId: newGame.id,
+      teamId: s.teamId,
+      outPlayerId: s.outPlayerId,
+      inPlayerId: s.inPlayerId,
+      createdAt: new Date().toISOString(),
+    }));
+    this.data.gameSubstitutions.push(...newSubs);
+
+    const subsText = newSubs.length
+      ? ` Substituições: ${newSubs
+          .map(s => `${this.getPlayerById(s.outPlayerId)?.displayName || '?'} → ${this.getPlayerById(s.inPlayerId)?.displayName || '?'}`)
+          .join(', ')}.`
+      : '';
     const auditEntry: AuditLog = {
       id: generateId('aud'),
       matchId,
       action: 'GAME_CREATED',
-      details: `Partida criada: "${teamA.name}" x "${teamB.name}".`,
+      details: `Partida criada: "${teamA.name}" x "${teamB.name}".${subsText}`,
       performedBy,
       createdAt: new Date().toISOString(),
     };
@@ -1076,7 +1135,9 @@ class PeladaStore {
 
     this.persist(this.data);
     const pin = this.getSessionPin();
-    pushGame(newGame, pin).then(() => pushAuditLog(auditEntry, pin));
+    pushGame(newGame, pin)
+      .then(() => Promise.all(newSubs.map(s => pushGameSubstitution(s, pin))))
+      .then(() => pushAuditLog(auditEntry, pin));
 
     return { success: true, game: newGame };
   }
@@ -1084,6 +1145,7 @@ class PeladaStore {
   public deleteGame(gameId: string, performedBy = 'Administrador'): void {
     const game = this.data.games.find(g => g.id === gameId);
     this.data.statEvents = this.data.statEvents.filter(ev => ev.gameId !== gameId);
+    this.data.gameSubstitutions = this.data.gameSubstitutions.filter(s => s.gameId !== gameId);
     this.data.games = this.data.games.filter(g => g.id !== gameId);
 
     const auditEntry: AuditLog = {
@@ -1107,8 +1169,8 @@ class PeladaStore {
   public getGamePlayers(gameId: string): {
     teamA: Team | undefined;
     teamB: Team | undefined;
-    teamAPlayers: Array<{ player: Player; goals: number; assists: number }>;
-    teamBPlayers: Array<{ player: Player; goals: number; assists: number }>;
+    teamAPlayers: Array<{ player: Player; goals: number; assists: number; substituteFor?: string }>;
+    teamBPlayers: Array<{ player: Player; goals: number; assists: number; substituteFor?: string }>;
   } {
     const game = this.getGameById(gameId);
     if (!game) return { teamA: undefined, teamB: undefined, teamAPlayers: [], teamBPlayers: [] };
@@ -1116,9 +1178,16 @@ class PeladaStore {
     const teamA = this.data.teams.find(t => t.id === game.teamAId);
     const teamB = this.data.teams.find(t => t.id === game.teamBId);
     const events = this.data.statEvents.filter(ev => ev.gameId === gameId);
+    const subs = this.data.gameSubstitutions.filter(s => s.gameId === gameId);
 
+    // Elenco da partida = elenco do time, sem quem foi substituído, mais
+    // quem entrou no lugar (marcado com o nome de quem saiu).
     const buildRows = (teamId: string) => {
-      const roster = this.data.matchPlayers.filter(mp => mp.teamId === teamId);
+      const outIds = new Set(subs.map(s => s.outPlayerId));
+      const subIn = new Map(subs.filter(s => s.teamId === teamId).map(s => [s.inPlayerId, s.outPlayerId]));
+      const roster = this.data.matchPlayers.filter(
+        mp => (mp.teamId === teamId && !outIds.has(mp.playerId)) || subIn.has(mp.playerId)
+      );
       return roster
         .map(mp => {
           const player = this.getPlayerById(mp.playerId) || {
@@ -1129,7 +1198,9 @@ class PeladaStore {
           };
           const goals = events.filter(ev => ev.playerId === mp.playerId && ev.type === 'GOAL').length;
           const assists = events.filter(ev => ev.playerId === mp.playerId && ev.type === 'ASSIST').length;
-          return { player, goals, assists };
+          const replacedId = subIn.get(mp.playerId);
+          const substituteFor = replacedId ? this.getPlayerById(replacedId)?.displayName : undefined;
+          return { player, goals, assists, substituteFor };
         })
         .sort((a, b) => a.player.displayName.localeCompare(b.player.displayName));
     };
@@ -1790,6 +1861,7 @@ class PeladaStore {
       auditLogs: [],
       seasons: [freshSeason],
       seasonAdjustments: [],
+      gameSubstitutions: [],
       settings: this.data.settings,
     };
     this.data = empty;
