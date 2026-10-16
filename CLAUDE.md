@@ -6,7 +6,7 @@
 PWA em português (BR) para gerir a pelada do Real Roma F.C.: rodadas, times, partidas, gols/assistências, rankings, temporadas, histórico e perfil de jogadores. Qualquer pessoa acompanha ao vivo; só o administrador (protegido por PIN) lança dados.
 
 - Produção: https://gestao-pelada-app.vercel.app (Vercel, projeto `gestao-pelada-app`)
-- Repositório: `github.com-flavioaugustomoral-fa:flavioaugustomoral-fa/real-roma-fc`
+- Repositório: https://github.com/flavioaugustomoral-fa/real-roma-fc
 
 > Observação: o `AGENTS.md` importado acima fala de Next.js, mas este projeto é **Vite + React**. Ignore essa parte.
 
@@ -20,7 +20,7 @@ npm run dev      # http://localhost:3000
 npm run lint     # tsc --noEmit
 npm run build    # gera dist/
 ```
-Precisa de um arquivo `.env` na raiz (não vai ao GitHub) com `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` (modelo em `.env.example`). Sem essas variáveis o app roda em modo local (sem Supabase) e o PIN padrão é 1234. Há também um `.env.local` antigo (`NEXT_PUBLIC_*`) que não é usado.
+Precisa de um arquivo `.env` na raiz (não vai ao GitHub) com `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` (modelo em `.env.example`). Sem essas variáveis o app roda em modo local (sem Supabase) e o PIN padrão é 1234. O `.env.local` é criado pela Vercel (`vercel link`) e só guarda `VERCEL_OIDC_TOKEN`; o app não usa.
 
 ## Estrutura
 - `src/App.tsx` — navegação por abas + integração com histórico do navegador (botão voltar do celular).
@@ -65,5 +65,5 @@ Tudo enviado ao GitHub e publicado na Vercel (último commit: substituição de 
 - Permitir substituto vindo de qualquer jogador da rodada, não só de times fora da partida.
 
 ## Caminho do projeto
-- Computador antigo: `C:\Users\Flávio\Downloads\real-roma-fc`
-- Notebook novo: `Documentos\real-roma-fc` (**atualizar aqui após a transferência**)
+- Atual (notebook novo): `Documentos\real-roma-fc` (caminho completo: `C:\Users\flavi\Documents\real-roma-fc`)
+- Computador antigo (não usado mais): `C:\Users\Flávio\Downloads\real-roma-fc`
