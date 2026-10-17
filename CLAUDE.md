@@ -56,9 +56,11 @@ npx vercel --prod --yes
 ```
 
 ## Estado atual (16/10/2026)
-Tudo enviado ao GitHub e publicado na Vercel (último commit: substituição de jogador por partida). Não há pendências de código.
+Tudo enviado ao GitHub e publicado na Vercel. Não há pendências de código.
 
-Última funcionalidade ainda **sem teste completo na interface**: criar partida com substituição e conferir na tela da partida o rótulo "Substituindo X". Vale testar com uma partida de teste.
+Substituição por partida testada na interface (modo offline): rótulo "Substituindo X", placar e classificação corretos. O teste achou e corrigiu um bug: o substituto aparecia repetido (uma vez por rodada antiga em que tinha jogado).
+
+Para testar sem tocar nos dados reais: rodar o Vite com `--mode offline` e um `.env.offline` com `VITE_SUPABASE_URL=` e `VITE_SUPABASE_ANON_KEY=` vazios (o app entra em modo local, PIN 1234). Sem o `.env.offline`, esse modo usa o `.env` e conecta no Supabase real.
 
 ## Próximas tarefas possíveis
 - Permitir editar/desfazer substituição depois de criada a partida.

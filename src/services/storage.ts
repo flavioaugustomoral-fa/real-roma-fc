@@ -1186,7 +1186,9 @@ class PeladaStore {
       const outIds = new Set(subs.map(s => s.outPlayerId));
       const subIn = new Map(subs.filter(s => s.teamId === teamId).map(s => [s.inPlayerId, s.outPlayerId]));
       const roster = this.data.matchPlayers.filter(
-        mp => (mp.teamId === teamId && !outIds.has(mp.playerId)) || subIn.has(mp.playerId)
+        mp =>
+          mp.matchId === game.matchId &&
+          ((mp.teamId === teamId && !outIds.has(mp.playerId)) || subIn.has(mp.playerId))
       );
       return roster
         .map(mp => {
